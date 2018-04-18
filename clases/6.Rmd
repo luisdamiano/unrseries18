@@ -1,0 +1,749 @@
+---
+title: "Series de Tiempo 2018"
+subtitle: "Maestría en Estadística Aplicada, UNR \\newline Unidad 6"
+author: "Luis Damiano \\newline damiano.luis@gmail.com"
+date: "`r Sys.Date()`"
+output:
+  beamer_presentation:
+    keep_tex: false
+    latex_engine: pdflatex
+    theme: metropolis
+    toc: false
+    slide_level: 2
+    incremental: false
+    includes:
+      in_header: tex/header.tex
+header-includes:
+  - \widowpenalties 1 150
+fontsize: 11pt
+classoption: compress
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(quantmod)
+library(forecast)
+library(xtable)
+source("R/plots.R")
+```
+
+## Contenido
+
+* Identificación
+    * Transformaciones
+    * Selección de orden
+    * Desplazamiento
+* Ejercicio: Ventas en supermercados
+* Ejercicio: Producción de automóviles
+
+# Identificación
+
+## ARIMA
+
+Típicamente, la identificación de una serie de tiempo incluye los siguientes pasos:^[**Típicamente** es la palabra clave de esta oración. Esta receta es una mera guía indicativa para hacer los primeros análisis. En la práctica, los datos reales desafían todos los protocolos.]
+
+\ChangeItemFont{\small}{\tiny}{\Tiny}
+
+1. Análisis exploratorio.
+    + ¿Qué dice la teoría subyacente a los datos?
+    + ¿Es estacionario en la media? ¿Tiene tendencia? ¿De qué tipo?
+    + ¿Es estacionario en la varianza? ¿De qué forma se relaciona la varianza con la media?
+    + ¿Tiene estacionalidad? ¿Es estacionaria? ¿Es constante a lo largo del tiempo? ¿Es aditiva o multiplicativa?
+    + ¿Tiene valores atípicos?
+    + ¿Presenta cambios (quiebres) en los patrones?
+2. Identificar las transformaciones necesarias.
+    + Eliminar tendencia.
+    + Estabilizar varianza.
+3. Seleccionar los órdenes $p$ y $q$.
+4. Identificar la existencia de tendencia determinística (desplazamiento o drift) en series diferenciadas.
+
+# 1 Análisis exploratorio
+
+## Análisis exploratorio
+
+Recordar el análisis exploratorio visto en la Unidad 5.
+
+# 2 Identificación de la raíz unitaria
+
+## Primeros lineamientos
+
+\ChangeItemFont{\small}{\tiny}{\Tiny}
+
+* Patrón: ACF decae muy lentamente y la PACF se corta abruptamente luego del primer rezago.
+* Pruebas de raíz unitarias: Dickey-Fuller, Dickey-Fuller Aumentado, Phillips–Perron.
+* Otras reglas prácticas:
+    * Si la suma de los parámetros $AR$ es cercana a la unidad, probar de incrementar el orden de la diferenciación $d$ y reducir el orden del componente autorregresivo $p$.
+    * Si la suma de los parámetros $MA$ es cercana a la unidad, probar de reducir el orden de la diferenciación $d$ y reducir el orden del componente de media móvil $q$.
+* ¿Caso muy dudoso? Probar diferenciando.
+
+## Identificación de $ARIMA(0, 1, 0)$
+
+\tiny
+
+```{r, echo = TRUE}
+set.seed(9000)
+z <- arima.sim(
+  model = list(order = c(0, 1, 0), sd = 1),
+  n     = 500
+  )
+
+library(tseries)
+adf.test(z, alternative = "stationary")
+pp.test(z, alternative = "stationary")
+```
+
+## Identificación de $ARIMA(0, 1, 0)$
+
+\centering
+
+\tiny
+
+```{r}
+tsdisplay(
+  z,
+  main = expression("Simulación de ARIMA(0, 1, 0)"),
+  ylab = expression(Z[t]),
+  points = FALSE
+  )
+```
+
+## Identificación de $ARIMA(2, 0, 0) con raíz (casi) unitaria$
+
+\tiny
+
+```{r, echo = TRUE}
+set.seed(9000)
+z <- arima.sim(
+  model = list(order = c(2, 0, 0), ar = c(0.7, 0.29), sd = 1),
+  n     = 500
+  )
+
+library(tseries)
+adf.test(z, alternative = "stationary")
+pp.test(z, alternative = "stationary")
+```
+
+## Identificación de $ARIMA(2, 0, 0) con raíz (casi) unitaria$
+
+\centering
+
+\tiny
+
+```{r}
+tsdisplay(
+  z,
+  main = expression("Simulación de ARIMA(2, 0, 0) con" ~ phi[1] + phi[2] %~~% 1),
+  ylab = expression(Z[t]),
+  points = FALSE
+  )
+```
+
+# 3 Seleccionar los órdenes $p$ y $q$
+
+## Selección de los órdenes $p$ y $q$
+
+\centering
+
+\tiny
+
+```{r, results = 'asis'}
+tab <- rbind(
+  c(
+    "$AR(p)$",
+    "Decae exponencialmente (raíz real)\\newline Sinusoidal (raíz compleja)",
+    "Se corta en el rezago $p$"
+  ),
+  c(
+    "$MA(q)$",
+    "Se corta en el rezago $q$",
+    "Decae exponencialmente (raíz real)\\newline Sinusoidal (raíz compleja)"
+  ),
+  c(
+    "$ARMA(p, q)$",
+    "Decae luego de $q-p$",
+    "Decae luego de $p-q$"
+  )
+)
+
+colnames(tab) <- c("Proceso", "ACF", "PACF")
+
+print(
+  xtable(tab, align = "llXX"),
+  tabular.environment = "tabularx",
+  width = "\\textwidth",
+  booktabs = TRUE,
+  include.colnames = TRUE,
+  include.rownames = FALSE,
+  comment = FALSE,
+  sanitize.colnames.function = identity,
+  sanitize.rownames.function = identity,
+  sanitize.text.function = identity
+)
+```
+
+En ciertas oportunidades, los términos $AR$ y $MA$ se cancelan. Cuando se identifica un modelo con ambos componentes, probar de disminuir ambos órdenes en una unidad. Por ejemplo, partiendo de $ARIMA(1, 1, 2)$, probar $ARIMA(0, 1, 1)$.
+
+## Identificación de $ARIMA(1, 0, 0)$
+
+\centering
+
+\tiny
+
+```{r}
+set.seed(9000)
+z <- arima.sim(
+  model = list(order = c(1, 0, 0), ar = c(0.8), sd = 1),
+  n     = 1E3
+  )
+
+tsdisplay(
+  z,
+  main = expression("Simulación de ARIMA(1, 0, 0) con" ~ phi[1] == 0.8),
+  ylab = expression(Z[t]),
+  points = FALSE
+  )
+```
+
+## Identificación de $ARIMA(3, 0, 0)$
+
+\centering
+
+\tiny
+
+```{r}
+set.seed(9000)
+z <- arima.sim(
+  model = list(order = c(3, 0, 0), ar = c(0.2, 0.3, 0.1), sd = 1),
+  n     = 1E3
+  )
+
+tsdisplay(
+  z,
+  main = expression("Simulación de ARIMA(3, 0, 0) con" ~ phi[1] == 0.2 ~ "" ~ phi[2] == 0.3~ "" ~ phi[3] == 0.1),
+  ylab = expression(Z[t]),
+  points = FALSE
+  )
+```
+
+## Identificación de $ARIMA(2, 0, 0)$ con raíces complejas
+
+El siguiente es un proceso $AR(2)$:
+\[
+Z_t - 1.7 Z_{t-1} + 0.8 Z_{t-2} = a_t, \ t = 0, \pm 1, \dots, \ a_t \sim \NN(0, 1).
+\]
+
+\tiny
+
+\centering
+
+```{r, fig.height = 4}
+set.seed(9000)
+z <- arima.sim(
+    model = list(order = c(2, 0, 0), ar = c(1.7, -0.8), sd = 1),
+    n     = 1E3
+)
+
+plot(
+  Arima(z, order = c(2, 0, 0)), 
+  main = "Raíces",
+  xlab = "Real",
+  ylab = "Imaginario"
+  )
+```
+
+\tiny \metroset{block=fill}
+\begin{block}{\small Ejercicio en clases}
+Calcular analíticamente las raíces del polinomio característico
+\end{block}
+
+## Identificación de $ARIMA(2, 0, 0)$ con raíces complejas
+
+\centering
+
+\tiny
+
+```{r}
+tsdisplay(
+  z,
+  main = expression("Simulación de ARIMA(2, 0, 0) con" ~ phi[1] == 1.7 ~ "" ~ phi[2] == - 0.8),
+  ylab = expression(Z[t]),
+  points = FALSE
+)
+```
+
+## Identificación de $ARIMA(0, 0, 1)$
+
+\centering
+
+\tiny
+
+```{r}
+set.seed(9000)
+z <- arima.sim(
+  model = list(order = c(0, 0, 1), ma = c(0.5), sd = 1),
+  n     = 1E3
+  )
+
+tsdisplay(
+  z,
+  main = expression("Simulación de ARIMA(0, 0, 1) con" ~ theta[1] == 0.5),
+  ylab = expression(Z[t]),
+  points = FALSE
+  )
+```
+
+## Identificación de $ARIMA(0, 0, 3)$
+
+\centering
+
+\tiny
+
+```{r}
+set.seed(9000)
+z <- arima.sim(
+    model = list(order = c(0, 0, 3), ma = c(1.5, 1.4, -1.2), sd = 1),
+    n     = 1E3
+)
+
+tsdisplay(
+  z,
+  main = expression("Simulación de ARIMA(0, 0, 3) con" ~ theta[1] == 1.5 ~ "" ~ theta[2] == 1.4 ~ "" ~ theta[3] == -1.2),
+  ylab = expression(Z[t]),
+  points = FALSE
+)
+```
+
+## Identificación de $ARIMA(1, 0, 1)$
+
+\centering
+
+\tiny
+
+```{r}
+set.seed(9000)
+z <- arima.sim(
+    model = list(order = c(1, 0, 1), ar = c(0.5), ma = c(0.5), sd = 1),
+    n     = 1E3
+)
+
+tsdisplay(
+  z,
+  main = expression("Simulación de ARIMA(1, 0, 1) con" ~ phi[1] == 0.5 ~ "" ~ theta[2] == 0.5),
+  ylab = expression(Z[t]),
+  points = FALSE
+)
+```
+
+# 4 Identificación de tendencia determinística
+
+## ¿Qué representa el desplazamiento? ^[@hyndman2018forecasting, sec. 8.5. [Ver online](https://otexts.org/fpp2/non-seasonal-arima.html).]
+
+\tiny
+
+Supongamos un $ARMA(p, q)$ diferenciado $d$ veces (donde $Z'_t$ representa la $d$-ésima diferencia)
+
+\[
+Z'_t = c + \phi_1 Z'_{t-1} + \dots + \phi_p Z'_{t-p} + \theta_1 a_{t-1} + \dots + \theta_q a_{t-q} + a_t, \ t = 0, \pm 1, \dots
+\]
+
+La constante $c$ se llama desplazamiento o drift, y tiene un efecto muy importante en los pronósticos de largo plazo^[Los pronósticos se desarrollan formalmente en la Unidad 9.].
+
+```{r, results = 'asis'}
+tab <- rbind(
+  c("$0$", 0, "Cero"),
+  c("$0$", 1, "Constante distinta de cero"),
+  c("$0$", 2, "Línea recta"),
+  c("$\\ne 0$", 0, "Promedio muestral"),
+  c("$\\ne 0$", 1, "Línea recta"),
+  c("$\\ne 0$", 2, "Tendencia cuádratica")
+)
+
+colnames(tab) <- c("$c$", "$d$", "Pronóstico de largo plazo")
+
+print(
+  xtable(tab, align = rep("c", ncol(tab) + 1)),
+  booktabs = TRUE,
+  include.colnames = TRUE,
+  include.rownames = FALSE,
+  comment = FALSE,
+  sanitize.colnames.function = identity,
+  sanitize.text.function = identity
+)
+```
+
+## Ejemplos simulados
+
+\centering
+
+\tiny
+
+```{r}
+nSim <- 100
+par(mfrow = c(2, 3))
+# 1 c = 0, d = 0
+set.seed(9000)
+c <- 0
+d <- 0
+z <- arima.sim(
+  model = list(order = c(1, d, 1), ar = c(0.5), ma = c(0.2), sd = 1),
+  n     = nSim
+  )
+
+fit <- Arima(
+  z + c * 1:length(z),
+  order = c(1, d, 1),
+  include.mean = FALSE,
+  include.drift = FALSE
+)
+
+plot(
+  forecast(fit, h = 100),
+  main = bquote("ARIMA(1, " * .(d) * ", 1) con" ~ c == .(c))
+  )
+
+legend(
+  x = "topright",
+  legend = as.expression(
+    bquote(hat(t)[T + 100] == .(sprintf("%0.2f", last(forecast(fit, h = 100)$mean))))
+    ),
+  col = "blue",
+  bty = "n",
+  cex = 1.2
+)
+
+# 2 c = 0, d = 1
+set.seed(9000)
+c <- 0
+d <- 1
+z <- arima.sim(
+  model = list(order = c(1, d, 1), ar = c(0.5), ma = c(0.2), sd = 1),
+  n     = nSim
+  )
+
+fit <- Arima(
+  z + c * 1:length(z),
+  order = c(1, d, 1),
+  include.mean = FALSE,
+  include.drift = FALSE
+)
+
+plot(
+  forecast(fit, h = 100),
+  main = bquote("ARIMA(1, " * .(d) * ", 1) con" ~ c == .(c))
+  )
+
+legend(
+  x = "topright",
+  legend = as.expression(
+    bquote(hat(t)[T + 100] == .(sprintf("%0.2f", last(forecast(fit, h = 100)$mean))))
+    ),
+  col = "blue",
+  bty = "n",
+  cex = 1.2
+)
+
+# 3 c = 0, d = 2
+set.seed(9000)
+c <- 0
+d <- 2
+z <- arima.sim(
+  model = list(order = c(1, d, 1), ar = c(0.5), ma = c(0.2), sd = 1),
+  n     = nSim
+  )
+
+fit <- Arima(
+  z + 2 * c * 1:length(z),
+  order = c(1, d, 1),
+  include.mean = FALSE,
+  include.drift = FALSE
+)
+
+plot(
+  forecast(fit, h = 100),
+  main = bquote("ARIMA(1, " * .(d) * ", 1) con" ~ c == .(c))
+  )
+
+# 4 c = 0.5, d = 0
+set.seed(9000)
+c <- 0.5
+d <- 0
+z <- arima.sim(
+  model = list(order = c(1, d, 1), ar = c(0.5), ma = c(0.2), sd = 1),
+  n     = nSim
+  )
+
+fit <- Arima(
+  z + c,
+  order = c(1, d, 1),
+  include.mean = TRUE,
+  include.drift = FALSE
+)
+
+plot(
+  forecast(fit, h = 100),
+  main = bquote("ARIMA(1, " * .(d) * ", 1) con" ~ c == .(c))
+  )
+
+legend(
+  x = "topright",
+  legend = c(
+    as.expression(
+      bquote(hat(t)[T + 100] == .(sprintf("%0.2f", last(forecast(fit, h = 100)$mean))))
+    ),
+    as.expression(
+      bquote(bar(z)[t] == .(sprintf("%0.2f", mean(z + c))))
+    )
+  ),
+  col = "blue",
+  bty = "n",
+  cex = 1.2
+)
+
+# 5 c = 0.5, d = 1
+set.seed(9000)
+c <- 0.5
+d <- 1
+z <- arima.sim(
+  model = list(order = c(1, d, 1), ar = c(0.5), ma = c(0.2), sd = 1),
+  n     = nSim
+  )
+
+fit <- Arima(
+  z + c * 1:length(z),
+  order = c(1, d, 1),
+  include.mean = FALSE,
+  include.drift = TRUE
+)
+
+plot(
+  forecast(fit, h = 100),
+  main = bquote("ARIMA(1, " * .(d) * ", 1) con" ~ c == .(c))
+  )
+```
+
+## Ejercicio: Ventas en supermercados
+
+\tiny \metroset{block=fill}
+\begin{block}{\small Ejercicio en clases}
+Identificar la serie de tiempo de ejemplo.
+\end{block}
+
+\vfill
+
+Este ejercicio invita a discutir temas como significancia estadística, parsimonia, y otras cuestiones subjetivas que hacen al análisis de series de tiempo. No esperen una respuesta clara y contundente cuando trabajen con datos reales. Asimismo, no consideren que el modelo elegido por `auto.arima` es la respuesta definitiva al proceso de identificación. El Anexo incluye algunos gráficos útiles.
+
+Algunos pasos:
+
+* Descargar los datos desde https://bit.ly/2GXzXoa.
+* De la Sección A 1.11, leer los datos mensuales para la columna *Ventas totales* ^[Hay una copia local en `data/INDECSuper.txt` en caso de que el sitio esté fuera de línea.].
+* Graficar y describir la serie original. ¿Es estacionaria en la media y en la varianza? ¿Observan tendencia y estacionalidad? ¿De qué tipo?
+* Graficar y describir las ACF y PACF muestrales. ¿Observan algunos de los patrones estudiados?
+
+## Ejercicio: Producción de automóviles
+
+\tiny \metroset{block=fill}
+\begin{block}{\small Ejercicio en clases}
+Identificar la serie de tiempo de ejemplo.
+\end{block}
+
+\vfill
+
+El Anexo incluye algunos gráficos útiles.
+
+Algunos pasos:
+
+* Descargar los datos desde https://bit.ly/2GXzXoa.
+* De la Sección A 1.22, leer los datos mensuales para la columna *Automóviles* ^[Hay una copia local en `data/haciendasAutos.txt` en caso de que el sitio esté fuera de línea.].
+* Graficar y describir la serie original. ¿Es estacionaria en la media y en la varianza? ¿Observan tendencia y estacionalidad? ¿De qué tipo?
+* Graficar y describir las ACF y PACF muestrales. ¿Observan algunos de los patrones estudiados?
+
+# Anexo: Ventas en supermercados
+
+## Lectura & procesamiento
+
+\centering
+
+\tiny
+
+```{r, echo = TRUE}
+# https://bit.ly/2GXzXoa
+df <- read.table(
+  file = "data//INDECSuper.txt", 
+  header = TRUE,
+  sep = "\t"
+)
+
+df[, 1] <- as.POSIXct(df[, 1], format = "%Y-%m-%d")
+
+z <- xts(x = df[, 2] / 1000, order.by = df[, 1])
+z_ts <- ts(z, frequency = 12) # stl requiere un objeto del tipo ts
+
+t(head(z, 9))
+```
+
+## Visualización
+
+\centering
+
+\tiny
+
+```{r}
+plot_seq(
+  z,
+  ticks.on = "months",
+  format.labels = "%m-%y",
+  main = expression("Ventas en supermercados"), 
+  ylab = expression("Miles de millones"),
+  xlab = expression(t), 
+  type = "l",
+  col = "darkgray",
+  cex = 1,
+  cex.axis = 1,
+  cex.lab = 1,
+  cex.main = 1
+  )
+```
+
+## Serie transformada (ln)
+
+```{r}
+tsdisplay(
+  log(z),
+  main = expression("log" ~ Z_t),
+  points = FALSE
+  )
+```
+
+## Primera diferencia de la serie transformada (ln)
+
+```{r}
+tsdisplay(
+  diff(log(z)),
+  main = expression(nabla ~ "log" ~ Z_t),
+  points = FALSE
+  )
+```
+
+## Ajuste
+
+\centering
+
+\tiny
+
+```{r}
+fit <- Arima(
+  log(z_ts),
+  order    = c(3, 1, 0),
+  seasonal = c(2, 1, 2)
+)
+
+print(fit)
+```
+
+
+## Residuos de un modelo ajustado
+
+```{r}
+tsdisplay(
+  residuals(fit),
+  main = expression("Residuos de SARIMA" (3, 1, 0)(2, 1, 2)[12] ~ "sobre log" ~ Z[t]),
+  points = FALSE
+  )
+```
+
+# Anexo: Producción de automóviles
+
+## Lectura & procesamiento
+
+\centering
+
+\tiny
+
+```{r, echo = TRUE}
+# https://bit.ly/2GXzXoa
+df <- read.table(
+  file = "data//haciendaAutos.txt",
+  header = TRUE,
+  sep = "\t"
+)
+
+df[, 1] <- as.POSIXct(df[, 1], format = "%Y-%m-%d")
+
+z <- xts(x = df[, 2] / 1000, order.by = df[, 1])
+z_ts <- ts(z, frequency = 12) # stl requiere un objeto del tipo ts
+
+t(head(z, 9))
+```
+
+## Visualización
+
+\centering
+
+\tiny
+
+```{r}
+plot_seq(
+  z,
+  ticks.on = "months",
+  format.labels = "%m-%y",
+  main = expression("Producción de automóviles"), 
+  ylab = expression("Miles de unidades"),
+  xlab = expression(t), 
+  type = "l",
+  col = "darkgray",
+  cex = 1,
+  cex.axis = 1,
+  cex.lab = 1,
+  cex.main = 1
+  )
+```
+
+## Serie transformada (ln)
+
+```{r}
+tsdisplay(
+  log(z),
+  main = expression("log" ~ Z_t),
+  points = FALSE
+  )
+```
+
+## Primera diferencia de la serie transformada (ln)
+
+```{r}
+tsdisplay(
+  diff(log(z)),
+  main = expression(nabla ~ "log" ~ Z_t),
+  points = FALSE
+  )
+```
+
+## Ajuste
+
+\centering
+
+\tiny
+
+```{r}
+fit <- Arima(
+  log(z_ts),
+  order    = c(2, 1, 1),
+  seasonal = c(1, 0, 0)
+)
+
+print(fit)
+```
+
+
+## Residuos de un modelo ajustado
+
+```{r}
+tsdisplay(
+  residuals(fit),
+  main = expression("Residuos de SARIMA" (2, 1, 0)(1, 0, 0)[12] ~ "sobre log" ~ Z[t]),
+  points = FALSE
+  )
+```
+
+## Referencias

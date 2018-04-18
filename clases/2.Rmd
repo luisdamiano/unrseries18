@@ -1,0 +1,159 @@
+---
+title: "Series de Tiempo 2018"
+subtitle: "Maestría en Estadística Aplicada, UNR \\newline Unidad 2"
+author: "Luis Damiano \\newline damiano.luis@gmail.com"
+date: "`r Sys.Date()`"
+output:
+  beamer_presentation:
+    keep_tex: false
+    latex_engine: pdflatex
+    theme: metropolis
+    toc: false
+    slide_level: 2
+    incremental: false
+    includes:
+      in_header: tex/header.tex
+header-includes:
+  - \widowpenalties 1 150
+fontsize: 11pt
+classoption: compress
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(quantmod)
+library(forecast)
+library(xtable)
+source("R/plots.R")
+```
+
+## Contenido
+
+* Funciones de autocovariancia, autocorrelación, y autocorrelación parcial
+* Proceso de ruido blanco
+
+## Modelos de serie de tiempo
+
+> A time series model for the observed data ${Z_t}$ is a specification of the joint distributions of a sequence of random variables ${z_t}$ of which ${Z_t}$ is postulated to be a realization [@brockwell2016introduction, p. 6].
+
+\tiny
+
+En lugar de especificar la distribución conjunta en su totalidad, en ciertos casos resulta suficiente *especificar las medias y covariancias*.
+
+Un modelo probabilístico completo debería especificar la distribución conjunta de todo el vector aleatorio:
+
+\[
+P[z_1 \le Z_1, \dots, z_t \le Z_t], -\infty < Z_1, \dots, Z_t < \infty, t = 1, 2, \dots.
+\]
+
+Dada la cantidad de parámetros a considerar, se considera la opción más parsimoniosa de **especificar las distribuciones conjuntas del primer y el segundo momento**.
+
+\[
+\ev{z_t} \wedge \ev{z_{t+k} \ z_t}, \ t = 1, 2, \dots, \ k = 1, 2, \dots
+\]
+
+## Proceso de ruido IID (1)
+
+\[
+{a_t} \sim IID(0, \sigma^2), \quad \sigma^2 < \infty
+\]
+
+Débilmente estacionario:
+
+* $\ev{a_t} = 0$ es independiente de $t$.
+* $\gamma(a_t, a_{t+k})$ es independiente de $t$ para cada valor de $k$.
+
+\[
+\gamma(a_t, a_{t+k}) =
+\begin{cases}
+\sigma^2 & k = 0, \\
+0 & k \ne 0.
+\end{cases}
+\]
+
+## Proceso de ruido IID (2)
+
+\tiny
+
+\begincols
+  \begincol{.48\textwidth}
+
+*¿Cómo simular un proceso de ruido IID?*
+
+```{r, echo = TRUE}
+set.seed(9000)
+T  <- 1000
+mu <- 0
+sigmasq <- 1.5
+at <- rnorm(T, mu, sigmasq)
+```
+
+```{r}
+plot(
+  at,
+  main = "Realización muestral de ruido IID", 
+  ylab = expression(a[t]), 
+  xlab = expression(t), 
+  type = "l"
+  )
+```
+
+*Estimadores muestrales*
+
+```{r, echo = TRUE}
+sprintf("Media muestral: %0.2f.", mean(at))
+```
+
+  \endcol
+  \begincol{.48\textwidth}
+
+```{r, echo = TRUE}
+Acf(at, type = "covariance", plot = FALSE)[1:5]
+```
+
+```{r, echo = TRUE}
+Acf(at, type = "correlation", plot = FALSE)[1:5]
+```
+
+```{r, echo = TRUE}
+Acf(at, type = "partial", plot = FALSE)[1:5]
+```
+
+  \endcol
+\endcols
+
+## Proceso de ruido IID (3)
+
+\[
+\gamma(a_t, a_{t+k}) =
+\begin{cases}
+\sigma^2 & k = 0, \\
+0 & k \ne 0.
+\end{cases}
+\]
+
+\[
+\rho(a_t, a_{t+k}) =
+\begin{cases}
+1 & k = 0, \\
+0 & k \ne 0.
+\end{cases}
+\]
+
+\[
+\phi(a_t, a_{t+k}) =
+\begin{cases}
+1 & k = 0, \\
+0 & k \ne 0.
+\end{cases}
+\]
+
+\vfill \tiny \metroset{block=fill}
+\begin{block}{\small Ejercicio en clases}
+Mostrar analíticamente :)
+\end{block}
+
+## Referencias
+
+\tiny

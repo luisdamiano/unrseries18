@@ -1,0 +1,705 @@
+---
+title: "Series de Tiempo 2018"
+subtitle: "Maestría en Estadística Aplicada, UNR \\newline Unidad 8"
+author: "Luis Damiano \\newline damiano.luis@gmail.com"
+date: "`r Sys.Date()`"
+output:
+  beamer_presentation:
+    keep_tex: false
+    latex_engine: pdflatex
+    theme: metropolis
+    toc: false
+    slide_level: 2
+    incremental: false
+    includes:
+      in_header: tex/header.tex
+header-includes:
+  - \widowpenalties 1 150
+fontsize: 11pt
+classoption: compress
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(quantmod)
+library(forecast)
+library(xtable)
+source("R/plots.R")
+```
+
+## Contenido
+
+* Diagnóstico de residuos
+    * Visualizaciones
+    * Pruebas de hipótesis
+* Criterios de selección de modelos
+* Ejercicio: Ventas en supermercados
+* Ejercicio: Producción de automóviles
+
+# Diagnóstico
+
+## Supuestos
+
+\small
+
+Supuestos:
+
+${a_t} \sim \text{WN}(0, \sigma^2)$
+
+* Distribución Gaussiana.
+    * Histograma de residuos.
+    * Gráfico de Cuantil-Cuantil de residuos.
+    * Prueba de bondad de ajuste $\chi^2$.
+    * Pruebas de normalidad.
+* Centrado en cero.
+* varianza constante.
+    * Gráfico de residuos.
+* Independencia condicional.
+    * ACF y PACF muestral.
+    * Pruebas de significación individual.
+    * Pruebas de significación conjunta (portmanteau).
+* Parámetros
+    * Prueba de significación.
+
+## Ejemplo
+
+\centering
+
+\tiny
+
+```{r, out.width = "0.8 \\textwidth"}
+# https://bit.ly/2GXzXoa Sección 1.10
+
+df <- read.table(
+  file = "data//METROPasajeros.txt", 
+  header = TRUE,
+  sep = "\t", 
+  dec = ","
+)
+
+df[, 1] <- as.POSIXct(df[, 1], format = "%Y-%m-%d")
+z    <- xts(df[, -1], df[, 1])
+z_ts <- ts(z, frequency = 12)
+
+plot_seq(
+  z,
+  main = "Pasajeros en el subterráneo",
+  ylab = "Miles de pasajeros",
+  xlab = "Tiempo",
+  type = 'l', 
+  col = 'darkgray', 
+  lwd = 1, 
+  format.labels = "%m-%y",
+  ticks.on = "days"
+)
+```
+
+\tiny \metroset{block=fill}
+\begin{exampleblock}{\small Discusión en clases}
+Sólo a juzgar por el gráfico de la serie, ¿qué elementos de todos los estudiados hasta el momento reconocen? ¿Tendencia? ¿De qué tipo? ¿Estacionalidad? ¿De qué periodicidad? ¿varianza constante? ¿Valores extremos?
+\end{exampleblock}
+
+## Ajuste
+
+\centering
+
+\tiny
+
+```{r, echo = TRUE}
+fit <- Arima(
+  log(z_ts),
+  order    = c(1, 1, 0),
+  seasonal = c(2, 0, 0)
+)
+res <- as.numeric(residuals(fit))
+
+print(fit)
+```
+
+## Ajuste (continuación)
+
+\centering
+
+\tiny
+
+```{r, out.width = "\\textwidth"}
+layout(matrix(1:2, ncol = 2), widths = c(0.5, 0.5))
+plot_seq(
+  z,
+  ticks.on = "months",
+  format.labels = "%m-%y",
+  main = expression("Pasajeros en el subterráneo"), 
+  ylab = expression(Z[t]), 
+  xlab = expression(t), 
+  type = "l",
+  col = "darkgray",
+  cex = 1,
+  cex.axis = 1,
+  cex.lab = 1,
+  cex.main = 1
+  )
+
+add_lines(as.xts(exp(fitted(fit))), col = "blue", lwd = 1)
+
+legend(
+  "bottomright",
+  legend = c(expression(Z[t]), expression(hat(Z)[t])),
+  col = c("darkgray", "blue"),
+  lwd = 1,
+  bty = "n",
+  horiz = TRUE,
+  cex = 1
+)
+
+plot(
+  as.numeric(z),
+  as.numeric(exp(fitted(fit))),
+  main = expression("Pasajeros en el subterráneo"), 
+  ylab = expression(hat(Z)[t]), 
+  xlab = expression(Z[t]),
+  pch = 21,
+  bg  = "darkgray",
+  col = "darkgray",
+  cex = 1,
+  cex.axis = 1,
+  cex.lab = 1,
+  cex.main = 1
+)
+```
+
+# Distribución Gaussiana
+
+## Visualización (1)
+
+\centering
+
+\tiny
+
+\begincols
+  \begincol{.68\textwidth}
+  
+```{r}
+par(pty = "s")
+hist(
+  res, 
+  breaks = "FD",
+  freq = FALSE,
+  main = "Histograma de residuos",
+  xlab = "Residuos",
+  ylab = "Densidad",
+  border = "gray",
+  col = "lightgray"
+  )
+
+lines(
+  density(res),
+  col = "blue",
+  lwd = 2
+)
+
+curve(
+  dnorm(x, 0, sd(res)),
+  col = "orange",
+  add = TRUE,
+  lwd = 2
+)
+
+legend(
+  x = "topright",
+  legend = c("Kernel", as.expression(bquote(N(0, .(sprintf("%0.2f", sd(res))))))),
+  bty = "n",
+  col = c("blue", "orange"),
+  lwd = 2
+)
+```
+
+  \endcol
+  \begincol{.31\textwidth}
+  
+```{r, echo = TRUE, eval = FALSE}
+hist(
+  res, 
+  breaks = "FD",
+  freq = FALSE
+)
+
+lines(
+  density(res)
+)
+
+curve(
+  dnorm(
+    x, 
+    mean = 0, 
+    sd = sd(res)
+    ),
+  add = TRUE,
+)
+```
+  
+  \endcol
+\endcols
+
+## Visualización (2)
+
+\centering
+
+\tiny
+
+\begincols
+  \begincol{.68\textwidth}
+  
+```{r}
+par(pty = "s")
+qqnorm(
+  res,
+  main = "QQ Residuos",
+  xlab = expression(q[z](hat(epsilon)[t])),
+  ylab = expression(hat(q)(hat(epsilon)[t])),
+  pch = 21,
+  bg = "darkgray",
+  col = "gray"
+  )
+
+qqline(res)
+
+legend(
+  x = "topleft",
+  legend = as.expression(
+    bquote(
+      hat(R)^2 == .(
+        sprintf(
+          "%0.2f",
+          summary(lm(y~x, data = qqnorm(res, plot.it = FALSE)))$r.squared
+        )
+      )
+    )
+  ),
+  col = "blue",
+  bty = "n",
+  cex = 1.2
+)
+```
+
+  \endcol
+  \begincol{.31\textwidth}
+  
+```{r, echo = TRUE, eval = FALSE}
+qqnorm(
+  res,
+  main = "QQ Residuos",
+  xlab = expression(
+    q[z](hat(epsilon)[t])
+    ),
+  ylab = expression(
+    hat(q)(hat(epsilon)[t])
+    ),
+  pch = 21,
+  bg = "darkgray",
+  col = "gray"
+  )
+
+qqline(res)
+```
+  
+  \endcol
+\endcols
+
+## Pruebas de hipótesis Jarque-Bera^[Otras pruebas relacionadas: Anderson-Darling, Lilliefors, Shapiro-Wilk.]
+
+\centering
+
+\tiny
+
+  \[
+  H_0: a_t \sim \NN \wedge \rho_{k}(a_t) = 0 \ \forall \ k \ne 1
+  \]
+  \[
+  \frac{n}{6} \hat{S}^2 + \frac{n}{24} (\hat{K}-3)^2 \overset{H_0}{\sim} \chi^2_2
+  \]
+
+La distribución asintótica converge lentamente. Algunas funciones, como `normtest::jb.norm.test`, calculan el p-value via simulaciones de Monte Carlo.
+
+\tiny
+
+\begincols
+  \begincol{.48\textwidth}
+
+```{r, echo  =TRUE}
+library(tseries)
+jarque.bera.test(res)
+```
+
+  \endcol
+  \begincol{.48\textwidth}
+
+```{r, echo  =TRUE}
+library(normtest)
+jb.norm.test(res)
+```
+
+  \endcol
+\endcols
+
+# varianza constante
+
+## Visualización
+
+\centering
+
+\tiny
+
+\begincols
+  \begincol{.68\textwidth}
+  
+```{r}
+par(mfrow = c(2, 1))
+par(mar = c(0, 5.1, 4.1, 2.1))
+plot(
+  as.numeric(res),
+  col = "darkgray",
+  type = "l",
+  main = "",
+  xlab = expression(t),
+  ylab = expression(hat(a)[t]),
+  xaxt = "n"
+)
+
+par(mar = c(5.1, 5.1, 0, 2.1))
+plot(
+  rollapply(res, width = 22, FUN = sd, fill = NA, align = "right"),
+  col = "darkgray",
+  type = "l",
+  main = "",
+  xlab = expression(t),
+  ylab = expression(hat(sigma)[a]^(n == 22)),
+  yaxt = "n"
+)
+axis(4)
+
+abline(
+  h = sd(res),
+  col = "red"
+)
+
+text(
+  x = 0,
+  y = 1.1 * sd(res),
+  labels = bquote(hat(sigma)[a] == .(round(sd(res), 2))),
+  pos = 4,
+  col = "red"
+)
+```
+
+  \endcol
+  \begincol{.31\textwidth}
+  
+```{r, echo = TRUE, eval = FALSE}
+hist(
+  res, 
+  breaks = "FD",
+  freq = FALSE
+)
+
+lines(
+  density(res)
+)
+
+curve(
+  dnorm(
+    x, 
+    mean = 0, 
+    sd = sd(res)
+    ),
+  add = TRUE,
+)
+```
+  
+  \endcol
+\endcols
+
+# Independencia condicional
+
+## Visualización
+
+\centering
+
+\tiny
+
+\begincols
+  \begincol{.68\textwidth}
+  
+```{r}
+par(mfrow = c(2, 1))
+
+par(mar = c(5.1, 4.1, 0 * 4.1 + 0.1, 2.1))
+Acf(res, main = "")
+
+par(mar = c(5.1, 4.1, 0 * 4.1 + 0.1, 2.1))
+Pacf(res, main = "")
+```
+
+  \endcol
+  \begincol{.31\textwidth}
+  
+```{r, echo = TRUE, eval = FALSE}
+par(mfrow = c(2, 1))
+Acf(res, main = "")
+Pacf(res, main = "")
+```
+  
+  \endcol
+\endcols
+
+## Cálculo del error estándar por simulación
+
+\tiny
+
+El siguiente es un proceso $AR(1)$,
+\[
+Z_t - 0.5 Z_{t-1} = a_t, \ t = 0, \pm 1, \dots, \ a_t \sim \NN(0, 1).
+\]
+
+\Tiny
+
+Analíticamente, sabemos que:
+\[
+\gamma_0 = \frac{\sigma_a^2}{1 - \phi_1^2} = \frac{1}{1 - 0.5^2} = \frac{4}{3} \qquad \gamma_k = \phi_1^k \gamma_0 = \frac{4}{3} 0.5^k \ \forall \ k \ge 0 \qquad \rho_k = \phi_1^k = 0.5^k \forall \ k \ge 0 \qquad \text{se}(\hat{\rho}_k) \to \sqrt{1 / T}
+\]
+
+\begincols
+  \begincol{.58\textwidth}
+
+```{r}
+set.seed(9000)
+
+N    <- 1E3 # Cantidad de simulaciones
+T    <- 3E2 # Tamaño de la muestra
+phi1 <- 0.5 # Verdadero valor del parámetro
+k    <- 1   # Estudiaremos el primer rezago
+rho1 <- phi1^k # Valor teórico de la autocorr k=1
+
+rho1sim <- vector("numeric", N)
+for (i in 1:N) {
+  x <- arima.sim(
+    list(ar = phi1),
+    n = T
+  )
+  rho1sim[i] <- cor(head(x, T - k), tail(x, T - k))
+}
+
+# par(pty = "s")
+hist(
+  rho1sim, 
+  breaks = "FD",
+  freq = FALSE,
+  main = expression("Histograma de" ~ hat(rho)[1]),
+  xlab = expression(hat(rho)[1]),
+  ylab = "Densidad",
+  border = "gray",
+  col = "lightgray"
+  )
+
+lines(
+  density(rho1sim),
+  col = "blue",
+  lwd = 2
+)
+
+curve(
+  dnorm(x, phi1, sd(rho1sim)),
+  col = "orange",
+  add = TRUE,
+  lwd = 2
+)
+
+legend(
+  x = "topright",
+  legend = c(
+    "Kernel", 
+    as.expression(
+      bquote(
+        N(.(sprintf("%0.2f", phi1)), .(sprintf("%0.2f", sd(rho1sim))))
+        )
+      )
+    ),
+  bty = "n",
+  col = c("blue", "orange"),
+  lwd = 2
+)
+```
+
+  \endcol
+  \begincol{.38\textwidth}
+
+```{r, echo = TRUE, eval = FALSE}
+set.seed(9000)
+
+N    <- 1E3 # Cantidad de simulaciones
+T    <- 3E2 # Tamaño de la muestra
+phi1 <- 0.5 # Verdadero valor del parámetro
+k    <- 1   # Estudiaremos el primer rezago
+rho1 <- phi1^k # Valor teórico de la autocorr k=1
+
+rho1sim <- vector("numeric", N)
+for (i in 1:N) {
+  x <- arima.sim(
+    list(ar = phi1),
+    n = T
+  )
+  rho1sim[i] <- cor(head(x, T - k), tail(x, T - k))
+}
+
+sprintf(
+  "Teórico %0.4f vs. simulado %0.4f", 
+  sqrt(1 / T), sd(rho1sim)
+  )
+```
+
+```{r}
+sprintf("Teórico %0.4f vs. simulado %0.4f", sqrt(1 / T), sd(rho1sim))
+```
+
+  \endcol
+\endcols
+
+## Pruebas de hipótesis Ljung & Box^[Otras pruebas relacionadas: Durbin-Watson, McLeod-Li, Breusch-Godfrey.]
+<!--
+https://stats.stackexchange.com/a/148290/31243
+https://stats.stackexchange.com/questions/6455/how-many-lags-to-use-in-the-ljung-box-test-of-a-time-series/205262#205262
+-->
+\centering
+\tiny
+  \[
+  H_0: \rho_1 = \rho_2 = \dots = \rho_h = 0
+  \]
+  \[
+  T(T+t) \sum_{k=1}^{h}{\frac{\hat{\rho}_k^2}{(T-k)}} \overset{H_0}{\sim} \chi^2_h
+  \]
+En lugar de probar individualmente la significancia de cada autocorrelación $\hat{\rho}_k$, la prueba de portmanteau considera conjuntamente la autocorrelación de los primeros $h$ rezagos. Cuidado con la potencia!
+
+\Tiny
+
+\begincols
+  \begincol{.48\textwidth}
+
+```{r}
+Box.test(res, lag = 12, type = "Ljung-Box")
+
+pvals <- sapply(1:20, function(l) {
+  Box.test(res, lag = l, type = "Ljung-Box")$p.value
+})
+```
+
+```{r, fig.height = 4.8}
+plot(
+  pvals,
+  xlab = "Rezago",
+  ylab = "p-value",
+  main = "Prueba de Ljung-Box",
+  type = "p",
+  pch = 21,
+  col = "blue",
+  bg  = "blue",
+  ylim = c(0, max(pvals, 0.15)),
+  cex = 2
+)
+
+abline(
+  h = 0.05,
+  col = "red"
+  )
+```
+
+  \endcol
+  \begincol{.48\textwidth}
+
+```{r, echo = TRUE, eval = FALSE}
+Box.test(res, lag = 12, type = "Ljung-Box")
+
+pvals <- sapply(1:20, function(l) {
+  Box.test(res, lag = l, type = "Ljung-Box")$p.value
+})
+
+plot(
+  pvals,
+  xlab = "Rezago",
+  ylab = "p-value",
+  main = "Prueba de Ljung-Box",
+  type = "p",
+  ylim = c(0, max(pvals, 0.15))
+)
+
+abline(h = 0.05)
+```
+
+  \endcol
+\endcols
+
+# Parámetros
+
+## Significatividad de los parámetros
+
+* Alternativa 1: Prueba de hipótesis.
+* Alternativa 2: Probar un modelo sin el parámetro. Evaluar diagnóstico y otras medidas de interés (ej. pronósticos).
+
+# Selección
+
+## Criterios de selección
+
+\small
+
+Luego de muchas transformaciones^[Estabilizar la varianza, remover la tendencia, remover la estacionalidad], se arriba a un punto en el proceso del análisis de datos donde un modelo ARMA con media cero resulta suficente. A partir de entonces, nos enfocamos en elegir los órdenes $p$ y $q$.
+
+La varianza de los pronósticos depende de dos factores: (i) la varianza del error aleatorio, y (ii) la varianza del estimador de los parámetros. Cuando el número de parámetros $M$ crece, el primero se reduce toda vez que el segundo se incrementa. ¿Dónde está el punto justo?
+
+\centering
+\tiny
+\[
+AIC = -2 \ln \hat{\mathcal{L}} + 2M \quad\quad AICc = AIC + \frac{2M^2 + 2M}{T - M - 1}
+\]
+\[
+BIC = T \ln \hat{\sigma}^2_a - (T - M) \ln \left(1 - \frac{M}{T} \right) + M \ln T + M \ln \left[\left(\frac{\hat{\sigma}^2_Z}{\hat{\sigma}^2_a}-1\right) / M\right]
+\]
+
+\tiny \metroset{block=fill}
+\begin{exampleblock}{\small Discusión en clases}
+¿Hay un punto justo? ¿Qué representan los criterios de información (pista: divergencia de Kullback–Leibler)? ¿Resuelven por completo los problemas de sobreajuste? ¿Por qué?
+\end{exampleblock}
+
+## Ejercicio: Ventas en supermercados
+
+\tiny \metroset{block=fill}
+\begin{block}{\small Ejercicio en clases}
+Identificar la serie de tiempo de ejemplo.
+\end{block}
+
+\vfill
+
+El Anexo no incluye la solución :)
+
+Algunos pasos:
+
+* Descargar los datos desde https://bit.ly/2GXzXoa.
+* De la Sección A 1.11, leer los datos mensuales para la columna *Ventas totales* ^[Hay una copia local en `data/INDECSuper.txt` en caso de que el sitio esté fuera de línea.].
+* Ajustar el modelo que propusieron en el ejercicio de la Unidad 6.
+* Realizar el diagnóstico de los residuos.
+
+## Ejercicio: Producción de automóviles
+
+\tiny \metroset{block=fill}
+\begin{block}{\small Ejercicio en clases}
+Identificar la serie de tiempo de ejemplo.
+\end{block}
+
+\vfill
+
+El Anexo no incluye la solución :)
+
+Algunos pasos:
+
+* Descargar los datos desde https://bit.ly/2GXzXoa.
+* De la Sección A 1.22, leer los datos mensuales para la columna *Automóviles* ^[Hay una copia local en `data/haciendasAutos.txt` en caso de que el sitio esté fuera de línea.].
+* Ajustar el modelo que propusieron en el ejercicio de la Unidad 6.
+* Realizar el diagnóstico de los residuos.

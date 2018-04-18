@@ -1,0 +1,357 @@
+---
+title: "Series de Tiempo 2018"
+subtitle: "Maestría en Estadística Aplicada, UNR \\newline Unidad 0"
+author: "Luis Damiano \\newline damiano.luis@gmail.com"
+date: "`r Sys.Date()`"
+output:
+  beamer_presentation:
+    keep_tex: false
+    latex_engine: pdflatex
+    theme: metropolis
+    toc: false
+    slide_level: 2
+    incremental: false
+    includes:
+      in_header: tex/header.tex
+header-includes:
+  - \widowpenalties 1 150
+fontsize: 11pt
+classoption: compress
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(quantmod)
+library(forecast)
+library(xtable)
+source("R/plots.R")
+```
+
+## Objetivos
+
+* Curso **introductorio**.
+* Conocimientos teóricos **básicos pero sólidos** que permitan un estudio independiente en temas más profundos.
+* Foco en modelos probabilísticos (comparar contra modelos no probabilísticos).
+* Visión aplicada con especial atención en las cuestiones metodológicas relacionadas con el análisis de datos.
+* Familiaridad con las rutinas de R que más se emplean en el análisis de series de tiempo.
+* ¿Interesados en modelos más complejos? Tesis de Maestría!
+
+## Contenido
+
+\tiny
+
+\begincols
+  \begincol{.48\textwidth}
+
+  ¿Qué temas veremos?
+  
+  * Procesos estacionarios (autoregresivos y de media móvil).
+  * Procesos no estacionarios.
+  * Transformaciones.
+  * Estacionalidad.
+  * Identificación, estimación, diangóstico y selección de modelos
+  * Pronósticos probabilísticos.
+  * Valores atípicos.
+  * Breve mención a modelos de espacio de estado.
+  * Breve mención a modelos de suavizados.
+  * Lenguaje de Programación R !!!
+
+  \endcol
+  \begincol{.48\textwidth}
+
+  ¿Qué temas no veremos?
+
+  * Enfoque de dominio.
+  * Datos con períodos de tiempo irregulares.  
+  * Datos discretos, o continuos con cotas.
+  * Datos faltantes.
+  * Observaciones multivariadas.
+  * Heterocedasticidad condicional.
+  * Procesos de memoria larga.
+  * Modelos de tiempo continuo.
+  * Modelos de suavizados como espacio de estados.
+  * Modelos no paramétricos.
+  * Modelos no lineales.
+  * Modelos Bayesianos :(
+
+  \endcol
+\endcols
+
+## Material
+
+\small
+
+Prácticos:
+
+  * @shumway2017time Capítulos 1-3, 6*.
+  * @metcalfe2009introductory Capítulos 1-3, 6-7, 12*.
+  * @cryer2008time Capítulos 1-10.
+  * @tsay2010analysis Capítulos 1-2, 11*.
+  * @hyndman2018forecasting Capítulos 1-3, 6, 8.
+  * @pena2010analisis Capítulos 1-13.
+  * @campagnoli2009dynamic Capítulos 2-3*.
+
+Teóricos:
+
+  * @hamilton1994time Capítulos 1-5, 15, 17.
+  * @brockwell2016introduction Capítulos 1-3, 5-6, 8*.
+
+\tiny
+
+\* Mención a los modelos de espacio de estado.
+
+## Series de tiempo en R
+
+**R es un gran ecosistema para el análisis de series de tiempo**.
+
+  * Gran variedad de paquetes pensados para leer, manipular, graficar, y modelar series de tiempo.
+    * [Vista de Time Series en CRAN](https://CRAN.R-project.org/view=TimeSeries).
+    * [Econometría](https://CRAN.R-project.org/view=Econometrics).
+    * [Finanzas](https://CRAN.R-project.org/view=Finance).
+
+Algunas tareas básicas:
+
+  * ¿Cómo leer una serie de tiempo desde diferentes formatos de archivos?
+  * ¿Cómo representar una serie de tiempo?
+  * ¿Cómo manipular una serie de tiempo?
+
+## R: Lectura de datos
+
+\tiny
+
+\begincols
+  \begincol{.48\textwidth}
+
+Desde un archivo de texto plano
+
+```{r, echo = TRUE}
+# http://bit.ly/2tVI81B
+
+df <- read.table(
+  file = "data//BCRABadlar.txt", 
+  header = TRUE,
+  sep = "\t", 
+  dec = ","
+)
+
+head(df)
+```
+
+  \endcol
+  \begincol{.48\textwidth}
+
+Desde una planilla de cálculo *xlsx*
+
+```{r, echo = TRUE}
+# http://bit.ly/2IzBrp5
+
+library(openxlsx)
+
+df <- read.xlsx(
+  xlsxFile = "data//INDEXProyecciones.xlsx",
+  sheet = "Sheet1",
+  rows = c(6, 9:39)
+)
+
+head(df)
+```
+
+  \endcol
+\endcols
+
+## R: Representación de los datos
+
+\ChangeItemFont{\small}{\tiny}{\tiny}
+
+  * Los datos suelen leídos en un objeto `data.frame`.
+    + Los timestamps suelen importarse como cadenas de caracteres. No son una verdadera representación del tiempo.
+    + No trae herramientas pensadas para el análisis de series de tiempo.
+  * Representando una serie de tiempos como un objeto `ts`.
+    * Indexa las observaciones en unidades discretas y equiespaciadas de tiempo.
+    * Requiere definir la frequencia como cantidad de observaciones por unidad de tiempo.
+    * No emplea fechas.
+  * Representando una serie de tiempos como un objeto `xts`.
+    * Basado en `zoo`.
+    * Requiere primero convertir timestamps en formato tiempo.
+    * Admite series con datos no equi-espaciados.
+    * Trae herramientas gráficas diseñadas especialmente para series de tiempo.
+    * Trae operadores típicos para series de tiempo (ej. `lag`, `diff`).
+    * Trae funciones para manipular datos secuenciales (ej. `rollsum`, `rollapply`)
+    * Permite manipular datos basados en el timestamp (ej. `x[2017/2018]`, `align.time`, `apply.weely`).
+    * Permite unir conjuntos de datos basados en el timestamp (ej. `cbind`, `merge`).
+
+## R: Manipulación de datos (1)
+
+Leer datos y convertir en formato `ts`.
+
+\tiny
+
+```{r, echo = TRUE}
+# http://bit.ly/2tVI81B
+
+df <- read.table(
+  file = "data//BCRABadlar.txt", 
+  header = TRUE,
+  sep = "\t", 
+  dec = ","
+)
+
+z <- ts(data = df[, 2], frequency = 1)
+
+head(z)
+```
+
+## R: Manipulación de datos (2)
+
+Leer datos y convertir en formato `xts`.
+
+\tiny
+
+```{r, echo = TRUE}
+# http://bit.ly/2tVI81B
+
+df <- read.table(
+  file = "data//BCRABadlar.txt", 
+  header = TRUE,
+  sep = "\t", 
+  dec = ","
+)
+
+df[, 1] <- as.POSIXct(df[, 1], format = "%d/%m/%Y")
+
+z <- xts(x = df[, 2], order.by = df[, 1])
+
+head(z)
+```
+
+## R: Manipulación de datos (3)
+
+Graficar series de tiempo automáticamente!
+
+\centering
+
+```{r, out.width = "0.9 \\textwidth"}
+plot(
+  z, 
+  main = "BADLAR en pesos de bancos privados (Tasa Nominal Anual)",
+  grid.col = "white"
+)
+```
+
+## R: Manipulación de datos (4)
+
+Manipulaciones típicas con datos secuenciales y/o indexados por el tiempo.
+
+\tiny
+
+\begincols
+  \begincol{.48\textwidth}
+
+```{r, echo = TRUE}
+# Valor de hoy, valor del período anterior,
+# valor del quinto paso anterior,
+# valor del período siguiente,
+# primera diferencia
+head(
+  cbind(
+    z, lag(z), lag(z, k = 5), 
+    lag(z, k = -1), diff(z)
+  )
+)
+```
+
+  \endcol
+  \begincol{.48\textwidth}
+
+```{r, echo = TRUE}
+# Promedio por semana para el último año
+head(
+  apply.weekly(z["2018"], mean)
+)
+```
+
+  \endcol
+\endcols
+
+## R: Manipulación de datos (5)
+
+Procesar datos usando una ventana móvil (*rolling window*).
+
+\tiny
+
+\centering
+
+```{r, out.width = "0.9 \\textwidth"}
+plot(
+  cbind(
+    BADLAR = z,
+    MM10 = rollapply(z, 10, mean, align = "center")
+  )["2016/"],
+  main = "BADLAR en pesos de bancos privados (Tasa Nominal Anual)",
+  col = c("lightgray", "red"),
+  lwd = c(1, 2),
+  grid.col = "white",
+  legend.loc = "topright"
+)
+```
+
+¿Qué muestra este gráfico?
+
+## Notación
+
+\tiny
+
+\begincols
+  \begincol{.48\textwidth}
+
+* $T$ Tamaño de la muestra
+* $t$ Índice de tiempo (discreto)
+* $Z_t$ Observaciones
+* $a_t$ Error aleatorio
+* $\mu$ Función de media
+* $\sigma^2$ Función de varianza
+* $\gamma_k$ Función de autocovariancia (función de $k$)
+* $\rho_k$ Función de autocorrelación (función de $k$)
+* $\Phi_{kk}$ Función de autocorrelación parcial (función de $k$)
+* $\phi_k$ Coeficiente autorregresivo para el $k$-ésimo rezago
+* $\theta_k$ Coeficiente de media móvil para el $k$-ésimo rezago
+* $k$ Rezago medido en cantidad de pasos
+* $h$ Horizonte medido en pasos hacia adelante
+* $s$ Subíndice de estacionalidad
+* $p$ Orden del proceso autorregresivo
+* $q$ Orden del proceso de media móvil
+
+  \endcol
+  \begincol{.48\textwidth}
+
+Notación específica para modelos de espacio de estados
+
+* $p$ Observaciones
+* $m$ Estados
+* $g$ Dimensión del error aleatorio
+* $\bm{y}_t$ Vector $p \times 1$ de observaciones
+* $\bm{\alpha}_t$ Vector $m \times 1$ de estado (latente/no observado)
+* $\bm{Z}_t$ Matriz $p \times m$ de salida
+* $\bm{T}_t$ Matriz $m \times m$ de transición de estados
+* $\bm{R}_t$ Matriz $m \times g$ de selección
+* $\bm{\eta}_t$ Vector $g \times 1$ de error aleatorio
+* $H_t$ varianza del error de medida
+* $\bm{Q}_t$ Matriz $g \times g$ de covariancias del error de transición
+
+  \endcol
+\endcols
+
+## Apuntes de `R`
+
+\ChangeItemFont{\small}{\tiny}{\tiny}
+
+* [Comandos básicos de R](http://github.com/rstudio/cheatsheets/raw/master/base-r.pdf).
+* Algunas funciones que emplearemos durante el curso:
+    * `base`: ts, tsdiag, acf, pacf, arima, arima.sim, head, tail, fitted, residuals, coef, decompose.
+    * `xts`: xts, plot, first, last, apply.\*, rollapply, roll\*.
+    * `forecast`: Acf, Pacf, seasonplot, tsdisplay, Arima, ets, forecast.
+
+## Referencias
+
+\tiny

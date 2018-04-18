@@ -1,0 +1,37 @@
+---
+title: "Series de Tiempo 2018"
+subtitle: "Maestría en Estadística Aplicada, UNR \\newline Unidad 7"
+author: "Luis Damiano \\newline damiano.luis@gmail.com"
+date: "`r Sys.Date()`"
+output:
+  beamer_presentation:
+    keep_tex: false
+    latex_engine: pdflatex
+    theme: metropolis
+    toc: false
+    slide_level: 2
+    incremental: false
+    includes:
+      in_header: tex/header.tex
+header-includes:
+  - \widowpenalties 1 150
+fontsize: 11pt
+classoption: compress
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(quantmod)
+library(forecast)
+library(xtable)
+source("R/plots.R")
+```
+
+## Estimación en R
+
+\tiny
+
+```{r, echo = TRUE}
+args(Arima)
+```

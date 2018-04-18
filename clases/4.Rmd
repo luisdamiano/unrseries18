@@ -1,0 +1,738 @@
+---
+title: "Series de Tiempo 2018"
+subtitle: "Maestría en Estadística Aplicada, UNR \\newline Unidad 4"
+author: "Luis Damiano \\newline damiano.luis@gmail.com"
+date: "`r Sys.Date()`"
+output:
+  beamer_presentation:
+    keep_tex: false
+    latex_engine: pdflatex
+    theme: metropolis
+    toc: false
+    slide_level: 2
+    incremental: false
+    includes:
+      in_header: tex/header.tex
+header-includes:
+  - \widowpenalties 1 150
+fontsize: 11pt
+classoption: compress
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(quantmod)
+library(forecast)
+library(xtable)
+source("R/plots.R")
+```
+
+## Contenido
+
+* Procesos no estacionarios en la media
+    * Tendencia lineal
+    * Tendencia estocásica
+    * Ejercicio: Energías alternativas
+* Procesos no estacionarios en la varianza
+    * Transformaciones.
+    * Ejercicio: Ventas de supermercados
+
+# Procesos no estacionarios
+
+## Tipos de no estacionariedad
+
+Un proceso **débilmente** estacionario de segundo orden:
+
+* La media y la varianza son constantes.
+* La covariancia y la correlación sólo son función de la diferencias de tiempo ($k$) entre las dos variables.
+
+\tiny \metroset{block=fill}
+\begin{exampleblock}{\small Discusión en clases}
+  ¿De qué forma podrían fallar cada uno de los requisitos de la definición?
+\end{exampleblock}
+
+## Tipos de no estacionariedad (continuación)
+
+* Procesos no estacionarios en la media
+    * Tendencia determinística
+    * Tendencia estocástica
+    * Tendencia que varía en función del tiempo
+* Procesos no estacionarios en la varianza
+    * Transformaciones para estabilizar la varianza
+
+## ¿Cómo encarar una serie?
+
+\small
+
+1. Primero y principal, ¿la teoría subyacente indica algo sobre la estacionariedad?
+2. Inspección visual (serie original, ACF, PACF).
+3. Ajustar ARMA si la serie:
+    * No muestra una violación aparente a los supuestos de estacionariedad, y
+    * Tiene una función de autocovariancia que decae rápidamente.
+4. Si el valor medio muestra variación por tendencia o estacionalidad, capturar el componente (ej. aplicar descomposición, diferenciar).
+5. Si la varianza muestra variación, buscar una transformación para estabilizarla.
+
+# Procesos no estacionarios en la media
+
+## Tendencia lineal
+
+\[
+Z_t = \alpha_0 + \alpha_1 t + a_t, \ t = 0, \pm 1, \dots, \ a_t \sim \NN(0, \sigma^2)
+\]
+
+\tiny
+
+```{r, echo = TRUE}
+simTL <- function(alpha0, alpha1, sigmasq, T) {
+  # Ruido
+  at <- rnorm(T, 0, sigmasq)
+  
+  # Observaciones
+  t  <- 1:T
+  Zt <- alpha0 + alpha1 * t + at
+  
+  # Devolver observaciones simuladas
+  Zt
+}
+```
+
+## Ejemplo
+
+\[
+Z_t = 5 + 0.2 t + a_t, \ t = 0, \pm 1, \dots, \ a_t \sim \NN(0, 1)
+\]
+
+\tiny
+
+\begincols
+  \begincol{.5\textwidth}
+
+```{r, echo = TRUE}
+set.seed(9000)
+z <- simTL(5, 0.2, 1, 100)
+t <- 1:100
+
+lmfit <- lm(z ~ t)
+```
+
+```{r, out.width = "1 \\textwidth"}
+plot(
+  z,
+  main = expression("Realización muestral TL con" ~ alpha[0] == 5 ~ ", " ~ alpha[1] == 0.2), 
+  ylab = "", 
+  xlab = expression(t), 
+  type = "l",
+  col = "darkgray",
+  cex = 2,
+  cex.axis = 2,
+  cex.lab = 2,
+  cex.main = 2
+  )
+
+lines(fitted(lmfit), col = "blue", lwd = 1)
+
+legend(
+  "bottomright",
+  legend = c(expression(Z[t]), expression(hat(Z)[t])),
+  col = c("darkgray", "blue"),
+  lwd = 1,
+  bty = "n",
+  horiz = TRUE,
+  cex = 2
+)
+
+legend(
+  x = "topleft",
+  legend = c(
+    as.expression(bquote(hat(alpha)[0] == ~ .(sprintf("%0.2f", coef(lmfit)[1])))),
+    as.expression(bquote(hat(alpha)[1] == ~ .(sprintf("%0.2f", coef(lmfit)[2])))),
+    as.expression(bquote(hat(sigma)^2 == ~ .(sprintf("%0.2f", summary(lmfit)$sigma^2))))
+  ),
+  bty = "n",
+  cex = 2
+)
+```
+
+  \endcol
+  \begincol{.5\textwidth}
+
+\fontsize{4.5}{6}\selectfont
+
+```{r}
+summary(lmfit)
+```
+
+  \endcol
+\endcols
+
+## Tendencia estocástica
+
+* Proceso no estacionario: raíces dentro del círculo unitario.
+* Proceso integrado $I(d)$: raíz unitaria en el polinomio autorregresivo.
+    * Asociado a una ACF que decae lentamente y toma valores cercanos a la unidad para los primeros rezagos.
+    * Prueba de Dickey-Fuller.
+    * Se torna estacionario al tomar la $d$-ésima diferenciación, donde $d$ es la cantidad de raíces ubicadas en el círculo unitario.
+
+## Ejemplo
+
+\centering
+
+```{r, out.width = "0.8 \\textwidth"}
+# https://bit.ly/2IdUjsP Energías Alternativas
+df <- read.table(
+  file = "data//nuclear.txt", 
+  header = TRUE,
+  sep = "\t"
+)
+
+df[, 1] <- as.POSIXct(df[, 1], format = "%Y-%m-%d")
+
+x <- xts(x = df[, 2], order.by = df[, 1])
+z <- na.omit(rollmean(x, 12, fill = NA)) / 1E6
+
+plot_seq(
+  z,
+  ticks.on = "months",
+  format.labels = "%m-%y",
+  main = expression("Generación de energía nuclear"), 
+  ylab = expression("Media móvil de doce meses"),
+  xlab = expression(t), 
+  type = "l",
+  col = "darkgray",
+  cex = 1,
+  cex.axis = 1,
+  cex.lab = 1,
+  cex.main = 1
+  )
+```
+
+\vfill \tiny \metroset{block=fill}
+\begin{exampleblock}{\small Discusión en clases}
+  ¿Qué tipo de tendencia tiene esta serie? ¿Cómo avanzarían en el análisis?
+\end{exampleblock}
+
+## Ejemplo (continuación)
+
+\centering
+
+\tiny
+
+```{r, fig.height = 4, warning = FALSE, message = FALSE}
+par(mfrow = c(1, 2))
+Acf(z, main = "Serie original")
+Acf(diff(z), main = "Primera diferencia")
+
+library(tseries)
+print(adf.test(z, alternative = "stationary", k = 1))
+```
+
+## Ejercicio: Energías alternativas
+
+\tiny \metroset{block=fill}
+\begin{block}{\small Ejercicio en clases}
+Analizar la serie de tiempo de ejemplo.
+\end{block}
+
+\vfill
+
+Además de poner práctica nuestras habilidades para analizar datos reales, el ejercicio nos permite aprender algunas funciones de `R` que son específicas para la manipulación de datos secuenciales. Solución disponible en el anexo.
+
+Algunos pasos:
+
+* Descargar los datos de https://bit.ly/2IdUjsP, sección Energías Alternativas.
+* Tomando solamente aquellos registros de frecuencia *mensual* y alcance *país*, leer la columna *generacion_nuclear* ^[Hay una copia local en `data/nuclear.txt` en caso de que el sitio esté fuera de línea.].
+* Calcular la generación de energía promedio de doce meses centrados ^[La serie original tiene estacionalidad mensual. Al tomar el promedio, eliminamos el componente estacional pero perdemos información valiosa. Más adelante, aprendemos métodos más específicos.].
+* Graficar y describir la serie original.
+* Probar si tiene raíz unitaria. En tal caso, diferenciar, graficar, y describir la serie.
+* Calcular los estadísticos descriptivos.
+* Proponer un modelo.
+* Evaluar el ajuste.
+
+# Procesos no estacionarios en la varianza
+
+## Procesos no estacionarios en la varianza
+
+* Un proceso estacionario en la media puede o no ser estacionario en la varianza.
+    * Aplicar transformación para estabilizar la varianza.
+* Todo proceso no estacionario en la media es no estacionario en la varianza.
+    * Aplicar primera diferencia.
+
+## Transformaciones
+
+Asumamos que la varianza varía junto a la media.
+
+\[
+\vv{Z_t} = c f(\mu_t)
+\]
+
+Para lograr una varianza constante, entonces:
+
+* Desvío estándar de una serie crece linealmente con la media: aplicar logaritmo (cualquier base).
+* varianza de una serie es proporcional al nivel: aplicar raíz cuadrada.
+* Desvío estándar de una serie es proporcional al cuadrado del nivel: aplicar recíproca.
+
+## Ejemplo
+
+\centering
+
+\tiny
+
+```{r, out.width = "0.8 \\textwidth"}
+# https://bit.ly/2GXzXoa Sección A 1.11 Ventas totales
+df <- read.table(
+  file = "data//INDECSuper.txt", 
+  header = TRUE,
+  sep = "\t"
+)
+
+df[, 1] <- as.POSIXct(df[, 1], format = "%Y-%m-%d")
+
+x <- xts(x = df[, 2] / 1000, order.by = df[, 1])
+z <- na.omit(rollmean(x, 12, fill = NA))
+
+plot_seq(
+  z,
+  ticks.on = "months",
+  format.labels = "%m-%y",
+  main = expression("Ventas en supermercados"), 
+  ylab = expression("Miles de millones de pesos"),
+  xlab = expression(t), 
+  type = "l",
+  col = "darkgray",
+  cex = 1,
+  cex.axis = 1,
+  cex.lab = 1,
+  cex.main = 1
+  )
+```
+
+\vfill \tiny \metroset{block=fill}
+\begin{exampleblock}{\small Discusión en clases}
+  A juzgar sólo por el gráfico, ¿qué transformaciones esperan aplicar?
+\end{exampleblock}
+
+## Ejercicio: Ventas de supermercados
+
+\tiny \metroset{block=fill}
+\begin{block}{\small Ejercicio en clases}
+Analizar la serie de tiempo de ejemplo.
+\end{block}
+
+\vfill
+
+El Anexo incluye algunos gráficos útiles.
+
+Algunos pasos:
+
+* Descargar los datos desde https://bit.ly/2GXzXoa.
+* De la Sección A 1.11, leer los datos mensuales para la columna *Ventas totales* ^[Hay una copia local en `data/INDECSuper.txt` en caso de que el sitio esté fuera de línea.].
+* Calcular las ventas promedio de doce meses centrados ^[La serie original tiene estacionalidad mensual. Al tomar la media, eliminamos el componente estacional pero perdemos información valiosa. Más adelante, aprendemos métodos más específicos.].
+* Graficar y describir la serie original.
+* Probar si tiene raíz unitaria. En tal caso, diferenciar, graficar, y describir la serie.
+* Una vez obtenida una serie estacionaria, proponer una transformación y aplicarla sobre los datos originales.
+* Calcular los estadísticos descriptivos.
+* Proponer un modelo.
+* Evaluar el ajuste.
+
+# Anexo: Generación nuclear
+
+## Conjunto de datos
+
+**Publicado por**: Ministerio de Hacienda. Secretaría de Política Económica. Subsecretaría de Programación Microeconómica.
+
+**Sección**: Indicadores Sectoriales de Energías alternativas.
+
+**Subsección**: Indicadores de Energías alternativas en valores anuales, trimestrales y mensuales.
+
+**Campo**: Generación de energía fuente nuclear.
+
+**Frecuencia**: mensual.
+
+**Agrupado por**: agregado a nivel país.
+
+**Unidad**: MWh (megavatio hora) ^[Transformado en GWh a los fines de la resolución.].
+
+## Lectura & procesamiento
+
+\centering
+
+\tiny
+
+```{r, echo = TRUE}
+# https://bit.ly/2IdUjsP Energías Alternativas
+df <- read.table(
+  file = "data//nuclear.txt", 
+  header = TRUE,
+  sep = "\t"
+)
+
+df[, 1] <- as.POSIXct(df[, 1], format = "%Y-%m-%d")
+df[, 2] <- df[, 2] / 1000
+
+x <- xts(x = df[, 2], order.by = df[, 1])
+xsum <- na.omit(rollmean(x, 12, fill = NA))
+
+t(head(cbind(mes = x, ult12 = xsum), 9))
+```
+
+## Visualización
+
+\centering
+
+\tiny
+
+```{r, eval = FALSE, echo = TRUE}
+plot(
+  cbind(x, xsum),
+  main = "Generación de energía nuclear en Argentina (GWh)",
+  col = 1:2,
+  grid.col = "white"
+)
+
+addLegend("top", c("Mensual", "MM(12)"), col = 1:2, lwd = 2)
+```
+
+## Visualización
+
+```{r, out.width = "1 \\textwidth", echo = FALSE, include = FALSE}
+plot(
+  cbind(x, xsum),
+  main = "Generación de energía nuclear en Argentina (GWh)",
+  col = 1:2,
+  grid.col = "white"
+)
+```
+
+```{r, out.width = "1 \\textwidth", echo = FALSE}
+addLegend("top", c("Mensual", "MM(12)"), col = 1:2, lwd = 2)
+```
+
+## Análisis de la serie original original
+
+\centering
+
+\Tiny
+
+```{r, eval = FALSE, echo = TRUE}
+tsdisplay(
+  xsum,
+  main = "Generación de energía nuclear en Argentina (GWh)",
+```
+
+```{r, fig.height = 6, echo = FALSE}
+tsdisplay(
+  xsum,
+  main = "Generación de energía nuclear en Argentina (GWh)",
+  )
+```
+
+## Análisis de la serie original diferenciada
+
+\centering
+
+\Tiny
+
+```{r, eval = FALSE, echo = TRUE}
+tsdisplay(
+  diff(xsum),
+  main = "Generación de energía nuclear en Argentina (GWh)",
+```
+
+```{r, fig.height = 6, echo = FALSE}
+tsdisplay(
+  diff(xsum),
+  main = "Generación de energía nuclear en Argentina (GWh)",
+  )
+```
+
+## Ajuste
+
+\centering
+
+\tiny
+
+```{r, echo = TRUE}
+fit <- Arima(xsum, order = c(0, 1, 1))
+
+print(fit)
+```
+
+## Ajuste versus observado
+
+\centering
+
+\tiny
+
+```{r, out.width = "\\textwidth"}
+plot_seq(
+  xsum,
+  ticks.on = "months",
+  format.labels = "%m-%y",
+  main = expression("Generación de energía nuclear en Argentina"), 
+  ylab = expression("GWh"),
+  xlab = expression(t), 
+  type = "l",
+  col = "darkgray",
+  cex = 1,
+  cex.axis = 1,
+  cex.lab = 1,
+  cex.main = 1
+  )
+
+add_lines(
+  cbind(xsum, as.numeric(fitted(fit)))[, 2],
+  col = "blue", 
+  lwd = 1
+  )
+
+legend(
+  "bottomright",
+  legend = c(expression(Z[t]), expression(hat(Z)[t])),
+  col = c("darkgray", "blue"),
+  lwd = 1,
+  bty = "n",
+  horiz = TRUE,
+  cex = 1
+)
+```
+
+## Diagnóstico de residuos
+
+\centering
+
+\tiny
+
+```{r, out.width = "1 \\textwidth"}
+par(mfrow = c(2, 2))
+Acf(
+  residuals(fit), 
+  type = "correlation",
+  main = "Residuos"
+  )
+
+Acf(
+  residuals(fit), 
+  type = "partial",
+  main = "Residuos"
+  )
+
+hist(
+  residuals(fit), 
+  breaks = "FD",
+  freq = FALSE,
+  main = "Histograma de residuos",
+  xlab = "Residuos",
+  ylab = "Densidad",
+  border = "gray",
+  col = "darkgray"
+  )
+
+lines(
+  density(residuals(fit)),
+  col = "blue",
+  lwd = 2
+)
+
+curve(
+  dnorm(x, 0, sd(residuals(fit))),
+  col = "orange",
+  add = TRUE,
+  lwd = 2
+)
+
+legend(
+  x = "topright",
+  legend = c("Kernel", as.expression(bquote(N(0, .(sprintf("%0.2f", sd(residuals(fit)))))))),
+  bty = "n",
+  col = c("blue", "orange"),
+  lwd = 2
+)
+
+qqnorm(
+  residuals(fit),
+  main = "QQ Residuos",
+  xlab = "Cuantiles teóricos",
+  ylab = "Cuantiles muestrales",
+  pch = 21,
+  bg = "darkgray",
+  col = "gray"
+  )
+
+qqline(residuals(fit))
+```
+
+# Anexo: Ventas en supermercados
+
+## Lectura & procesamiento
+
+\centering
+
+\tiny
+
+```{r, echo = TRUE}
+# https://bit.ly/2GXzXoa
+df <- read.table(
+  file = "data//INDECSuper.txt", 
+  header = TRUE,
+  sep = "\t"
+)
+
+df[, 1] <- as.POSIXct(df[, 1], format = "%Y-%m-%d")
+
+x <- xts(x = df[, 2] / 1000, order.by = df[, 1])
+z <- na.omit(rollmean(x, 12, fill = NA))
+
+t(head(cbind(x, z), 9))
+```
+
+## Visualización
+
+\centering
+
+\tiny
+
+```{r}
+plot_seq(
+  z,
+  ticks.on = "months",
+  format.labels = "%m-%y",
+  main = expression("Ventas en supermercados"), 
+  ylab = expression("Miles de millones de pesos"),
+  xlab = expression(t), 
+  type = "l",
+  col = "darkgray",
+  cex = 1,
+  cex.axis = 1,
+  cex.lab = 1,
+  cex.main = 1
+  )
+```
+
+## Serie original
+
+\centering
+
+\tiny
+
+```{r, out.width = "\\textwidth"}
+par(mfrow = c(3, 3))
+
+plot_seq(
+  z,
+  ticks.on = "months",
+  format.labels = "%m-%y",
+  main = "Ventas en supermercados (ARS MM)",
+  ylab = expression(Z[t]), 
+  xlab = expression(t), 
+  type = "l",
+  col = "darkgray",
+  cex = 1,
+  cex.axis = 1,
+  cex.lab = 1,
+  cex.main = 1
+)
+
+Acf(z, main = "")
+Pacf(z, main = "")
+
+plot_seq(
+  diff(z),
+  ticks.on = "months",
+  format.labels = "%m-%y",
+  main = "Primera diferencia",
+  ylab = expression(nabla ~ Z[t]), 
+  xlab = expression(t), 
+  type = "l",
+  col = "darkgray",
+  cex = 1,
+  cex.axis = 1,
+  cex.lab = 1,
+  cex.main = 1
+)
+
+Acf(diff(z), main = "")
+Pacf(diff(z), main = "")
+
+plot_seq(
+  diff(diff(z)),
+  ticks.on = "months",
+  format.labels = "%m-%y",
+  main = "Segunda diferencia",
+  ylab = expression(nabla^2 ~ Z[t]), 
+  xlab = expression(t), 
+  type = "l",
+  col = "darkgray",
+  cex = 1,
+  cex.axis = 1,
+  cex.lab = 1,
+  cex.main = 1
+)
+
+Acf(diff(diff(z)), main = "")
+Pacf(diff(diff(z)), main = "")
+```
+
+## Serie transformada (ln)
+
+\centering
+
+\tiny
+
+```{r, out.width = "\\textwidth"}
+z <- log(z)
+
+par(mfrow = c(3, 3))
+plot_seq(
+  z,
+  ticks.on = "months",
+  format.labels = "%m-%y",
+  main = "Ventas en supermercados (log ARS MM)",
+  ylab = expression("ln"~Z[t]), 
+  xlab = expression(t), 
+  type = "l",
+  col = "darkgray",
+  cex = 1,
+  cex.axis = 1,
+  cex.lab = 1,
+  cex.main = 1
+)
+
+Acf(z, main = "")
+Pacf(z, main = "")
+
+plot_seq(
+  diff(z),
+  ticks.on = "months",
+  format.labels = "%m-%y",
+  main = "Primera diferencia",
+  ylab = expression(nabla ~ "ln" ~ Z[t]), 
+  xlab = expression(t), 
+  type = "l",
+  col = "darkgray",
+  cex = 1,
+  cex.axis = 1,
+  cex.lab = 1,
+  cex.main = 1
+)
+Acf(diff(z), main = "")
+Pacf(diff(z), main = "")
+
+plot_seq(
+  diff(diff(z)),
+  ticks.on = "months",
+  format.labels = "%m-%y",
+  main = "Segunda diferencia",
+  ylab = expression(nabla^2 ~ "ln" ~ Z[t]), 
+  xlab = expression(t), 
+  type = "l",
+  col = "darkgray",
+  cex = 1,
+  cex.axis = 1,
+  cex.lab = 1,
+  cex.main = 1
+)
+
+Acf(diff(diff(z)), main = "")
+Pacf(diff(diff(z)), main = "")
+```

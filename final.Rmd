@@ -1,0 +1,83 @@
+---
+title: "Trabajo Práctico Final"
+subtitle: "Series de Tiempo, Maestría en Estadística Aplicada, UNR"
+author: "María Teresa Blaconá & Luis Damiano"
+date: "Abril 2018"
+output:
+  pdf_document:
+    toc: false
+urlcolor: blue
+---
+
+# Objetivo
+
+El objetivo del trabajo práctico final es el siguiente: *partiendo de un conjunto de datos, proponer un modelo de series de tiempo, argumentar por qué el ajuste se considera adecuado, y presentar los pronósticos probabilísticos para tres pasos hacia adelante*. La consigna detallada más adelante los invita a realizar de manera independiente el estudio de una serie de tiempo con datos reales, replicando a nivel introductorio un típico caso de la práctica profesional.
+
+<!-- A grandes razgos, un estudio típico incluye el análisis exploratorio y descriptivo de los datos, la descripción del ajuste del modelo, y el estudio de los pronósticos. -->
+
+Es importante comprender cuál **no** es el objetivo de este trabajo. El mismo no intenta identificar "el modelo ideal" o aquél que ofrezca "el mejor ajuste". Fuera de los libros de texto, los conjuntos de datos suelen presentar características que van más allá de lo abordado en un curso introductorio. A los fines del trabajo, es válido que algunos diagnósticos fallen, siempre que el análisis así lo explicite. En este sentido, vale recordar la expresión de George Box: "todos los modelos son incorrectos, pero algunos son útiles" ^[Box, G. E. P. (1979), "Robustness in the strategy of scientific model building", in Launer, R. L.; Wilkinson, G. N., Robustness in Statistics, Academic Press, pp. 201–236. [Más información en este enlace](https://en.wikipedia.org/wiki/All_models_are_wrong).].
+
+La clave está en comprender que muchas de las técnicas específicas desarrolladas a lo largo de las últimas décadas han nacido mediante la expansión, generalización, o combinación de los conceptos fundamentales presentados en clases. Este trabajo les permitirá consolidar los conceptos que necesitarán para, por ejemplo, estudiar independientemente los modelos ARFIMA si se encontraran con datos de memoria larga.
+
+# Consigna
+
+Como mínimo, la entrega debe incluir (i) una pregunta de interés planteada por el alumno, (ii) la descripción y el análisis exploratorio del conjunto de datos, (iii) la descripción, el ajuste, el diagnóstico, y la selección de los modelos propuestos, (v) el pronóstico tres pasos hacia adelante, y (vi) las conclusiones y las limitaciones.
+
+**(i) Pregunta de interés**. Deben proponer un objetivo práctico que los motiva a estudiar el conjunto de datos. El mismo representa el planteo que recibirían de un tercero para el cual investigan o realizan un trabajo de consultoría. Por ello mismo, no es necesario que la pregunta de investigación sea planteada en términos estadísticos.
+
+Por ejemplo, el conocimiento cotidiano nos indica que las ventas de helado se incrementan durante el verano y disminuyen durante el inverno. Un trabajo de consultoría podría requerir un estudio del patrón estacional que precise en qué mes comienza y cuántos meses dura la temporada alta. En el ámbito de las políticas públicas, una investigación basada en una serie de accidentes de tráfico puede requerir que se identifique un modelo adecuado para comprender si el valor esperado de número de accientes ha disminuído a lo largo del tiempo.
+
+El objetivo práctico será el componente personal a cada trabajo. Sugerimos plantear un objetivo relacionado con el tema que les haya despertado mayor curiosidad. Por ejemplo, pueden detenerse en el análisis de la estacionalidad si la serie elegida presentara un patrón especialmente interesante, o si consideran que el patrón resulta un elemento clave para un pronóstico adecuado. Como ejemplo alternativo, si están interesados en el diagnóstico de modelos, pueden enfocarse en describir de qué forma los datos se alejan de los supuestos y evaluar cómo esto afectan a los pronósticos.
+
+Es importante que no se sientan restringidos a seleccionar una pregunta que puedan responder fácil y cabalmente. También hay valor en crear un modelo que permita determinar formalmente que -- bajo ciertos supuestos -- la información disponible no es suficiente para dar una respuesta definitiva. Alternativamente, podemos asignar una pregunta de interés a quien tenga dificultades para imaginar una.
+
+<!-- Plantear hipótesis sobre el comportamiento de la serie antes de ajustar un modelo, o mejor aún antes de completar el análisis exploratorio. Por ejemplo, ¿cómo esperan que sea la estacionalidad de una serie de tiempo con frecuencia horaria que mide la cantidad de personas presentes en un aeropuerto? -->
+
+**(ii-vi) Puntos restantes**. Los elementos restantes de la consigna se corresponden directamente a los temas desarrollados en clases. El Capítulo 16 de Peña^[Peña, D. (2010), "Análisis de series temporales", Alianza.] puede resultarles especialmente útil.
+
+# Conjunto de datos
+
+Como único requerimiento, la serie de tiempo debe tener un componente estacional. Pueden emplear un conjunto de datos relacionado a su ambiente de trabajo. En caso que no contar con datos propios, ponemos a disposición un listado de sitios web que publican datos de interés general.
+
+<!-- El objetivo de este trabajo es fortalecer los conocimientos fundamentales para el análisis de datos de series de tiempo. En este sentido, no se busca que el análisis se realice sobre un conjunto de datos excesivamente complejo; todo lo contrario, se espera que el alumno demuestre un entendimiento claro de las herramientas primordiales. -->
+
+## Datos públicos
+
+[Datos Argentina](http://datos.gob.ar/). El Ministerio de Modernización recopila datos publicados por numerosas reparticiones estatales y entes privados. Incluye datos económicos, demográficos, sociales, naturales, entre otros. 
+
+[Portal de Datos Económicos](https://www.minhacienda.gob.ar/datos/). El Ministerio de Hacienda publica su base de datos de series de tiempo, la cual consolida información publicada por organismos públicos y privados.
+
+Les mencionamos algunos ejemplos de series publicados en la sección de [Datos de Cadenas Productivas](https://www.minhacienda.gob.ar/secretarias/politica-economica/programacion-microeconomica/informes-de-cadenas-productivas/):
+
+* [Generación de energía solar](https://www.minhacienda.gob.ar/catalogo-sspmi/dataset/25-indicadores-energias-alternativas-basecompleta.xlsx) (mensual ene-11 a feb-18).
+* [Remuneración total en el rubro de la minería](https://www.minhacienda.gob.ar/catalogo-sspmi/dataset/02-indicadores-mineria-metalifera-basecompleta.xlsx) (mensual ene-95 a sep-17).
+* [Ventas en supermercados](https://www.economia.gob.ar/download/infoeco/actividad_ied.xlsx) (mensual jul-96 a ene-18).
+* [Faena de ganado](https://www.economia.gob.ar/download/infoeco/actividad_ied.xlsx) (mensual ene-80 a ene-18).
+* [Captura pesquera](https://www.economia.gob.ar/download/infoeco/actividad_ied.xlsx) (mensual ene-92 a feb-18).
+* [Producción de automóviles](https://www.economia.gob.ar/download/infoeco/actividad_ied.xlsx) (mensual ene-63 a feb-18).
+    
+## Sugerencias
+
+Presentamos algunas sugerencias para que el trabajo les resulte más sencillo y provechoso. Algunas limitaciones pueden resolverse mediante el procesamiento previo de los datos tal como mencionados debajo, pero la pérdida de información puede resultar muy grande si los efectos son muy marcados.
+
+* Evitar series que representen una variable aleatoria cuya definición se aleje marcadamente del supuesto de normalidad condicional (por ejemplo, proporciones, datos de conteo, variables con cotas cercanas a los valores observados, procesos con gran cantidad de ceros o no-observaciones). En algunos casos, ciertas transformaciones pueden ofrecer un atajo.
+* Evitar series con múltiples estacionalidades que estén muy marcadas (por ejemplo, la serie diaria de consumo de energía puede mostrar patrones asociados al día de la semana y el mes). Los datos pueden ser agregados para eliminar uno de los componentes estacionales.
+* Evitar series con datos medidos en períodos irregulares (por ejemplo, una serie donde los registros son condicionales a la ocurrencia de cierto evento). Los datos pueden ser alineados.
+* Evitar series con datos faltantes (por ejemplo, datos oficiales que no fueron reportados durante un período de tiempo). Los datos faltantes pueden ser imputados siempre que sean pocos y aleatorios.
+* Evitar series con datos de calidad dudosa o fuentes poco confiables (por ejemplo, una serie de cantidad de lluvia que presente observaciones negativas).
+
+Sugerimos discutir estas cuestiones con nosotros antes de comenzar a estudiar la serie. Por ello, idealmente deberían comenzar la búsqueda una vez finalizada la segunda semana del cursado.
+
+# Entrega
+
+La entrega se materializa en un reporte profesional (imaginen, por ejemplo, que el mismo se entrega a un cliente de consultoría o una entidad para la cual trabajan). No existe un mínimo o máximo de páginas pre-establecido. El mismo debe ser enviado por correo electrónico a las siguientes direcciones: mblacona@fcecon.unr.edu.ar y damiano.luis@gmail.com.
+
+# Devolución
+
+La entrega recibirá un puntaje del 1 al 10 en función de (i) el grado de cumplimiento de la consigna, (ii) la aplicación apropiada de los conceptos estadísticos, (iii) la precisión del lenguaje técnico, y (iv) la presentación. Se valorará la originalidad a la hora de plantear una hipótesis de trabajo y resolverla. Este puntaje representará el 40% de la nota final por el cursado de la materia, donde el 60% restante estará dado por el trabajo teórico.
+
+Además del puntaje, estamos disponibles para ofrecerles una devolución oral sobre los puntos fuertes y débiles de la entrega. Puede acordarse una devolución conjunta para toda la clase, de manera que todos se enriquezcan de los trabajos ajenos, o bien individual para atender a las cuestiones particulares de cada grupo. El formato y el momento serán acordados durante el cursado.
+
+# Palabras finales
+
+No se queden con dudas sobre la consigna, pregunten libremente. Recuerden que en nuestro idioma el uso del acentos no es opcional. Y, por favor, no esperen hasta último momento...

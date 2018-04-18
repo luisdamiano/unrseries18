@@ -1,0 +1,811 @@
+---
+title: "Series de Tiempo 2018"
+subtitle: "Maestría en Estadística Aplicada, UNR \\newline Unidad 5"
+author: "Luis Damiano \\newline damiano.luis@gmail.com"
+date: "`r Sys.Date()`"
+output:
+  beamer_presentation:
+    keep_tex: false
+    latex_engine: pdflatex
+    theme: metropolis
+    toc: false
+    slide_level: 2
+    incremental: false
+    includes:
+      in_header: tex/header.tex
+fontsize: 11pt
+classoption: compress
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(quantmod)
+library(forecast)
+library(xtable)
+source("R/plots.R")
+```
+
+## Contenido
+
+* Análisis exploratorio
+* Descomposición
+    * Medias móviles
+    * LOESS
+    * Regresión lineal
+    * Diferenciación
+* Ejercicio: Ventas en supermercados
+
+# Estacionalidad
+
+## Descomposición de series ^[@hyndman2008forecasting]
+
+\ChangeItemFont{\small}{\tiny}{\tiny}
+
+* Elementos:
+    * $\mathcal{T}$ Tendencia: Dirección de largo plazo.
+    * $\mathcal{S}$ Estacionalidad: Patrón que se repite con una periodicidad conocida.
+    * $\mathcal{C}$ Ciclo: Patrón que se repite con una periodicidad desconocida y cambiante.
+    * $\mathcal{E}$ Irregular: Parte no predecible (también conocido como residuo, o error).
+* Combinación:
+    * $\mathcal{N}$ Ninguno: El componente no existe o no es tenido en cuenta.
+    * $\mathcal{A}$ Aditiva: Suma de componentes.
+    * $\mathcal{M}$ Multiplicativa: Producto de componentes.
+    * Pueden aplicarse diferentes operadores para diferentes elementos.
+
+## Enfoques
+
+Cuando existen tendencia y estacionalidad, suelen aplicarse dos enfoques:
+
+* Modelos clásicos de descomposición.
+    * Mínimos cuadrados.
+    * Suavizados exponenciales.
+* Eliminación por diferenciación.
+    * SARIMA.
+
+## Ejemplo
+
+\centering
+
+```{r, out.width = "0.8 \\textwidth"}
+# https://bit.ly/2GXzXoa
+df <- read.table(
+  file = "data//INDECGaseosas.txt", 
+  header = TRUE,
+  sep = "\t"
+)
+
+df[, 1] <- as.POSIXct(df[, 1], format = "%Y-%m-%d")
+
+z <- xts(x = df[, 2], order.by = df[, 1])
+# Descartar las últimas observaciones (año parcial)
+z <- z["/2017-12-31"] / 1000
+
+plot_seq(
+  z,
+  ticks.on = "months",
+  format.labels = "%m-%y",
+  main = expression("Ventas de gaseosas"), 
+  ylab = expression("Miles de litros"),
+  xlab = expression(t), 
+  type = "l",
+  col = "black",
+  cex = 1,
+  cex.axis = 1,
+  cex.lab = 1,
+  cex.main = 1
+  )
+```
+
+\tiny \metroset{block=fill}
+\begin{exampleblock}{\small Discusión en clases}
+¿Observan un patrón estacional? ¿Cómo lo describirían a simple vista? ¿De qué forma intentarían capturarlo?
+\end{exampleblock}
+
+## Tabla de Buys-Ballot
+
+\centering
+
+\tiny
+
+```{r, results = "asis"}
+z_mat <- matrix(z, ncol = 12)
+z_ano <- tapply(z, format(index(z), "%Y"), mean)
+z_mes <- tapply(z, format(index(z), "%m"), mean)
+z_all <- mean(z)
+
+tab <- 
+  rbind(
+    cbind(z_mat, z_ano),
+    cbind(t(z_mes), z_all)
+  )
+
+colnames(tab) <- c(1:12, "Media")
+rownames(tab) <- c(names(z_ano), "Media")
+
+print(
+  xtable(tab, digits = 0, align = rep("r", ncol(tab) + 1)),
+  booktabs = TRUE,
+  hline.after = c(-1, 0, nrow(tab) - 1, nrow(tab)),
+  scalebox = 0.8,
+  comment = FALSE
+)
+```
+
+## Gráficos por mes
+
+\centering
+
+\tiny
+
+```{r, out.width = "\\textwidth"}
+monthplot(
+  z,
+  main = expression("Venta de Gaseosas"),
+  ylab = expression("Miles de litros"), 
+  xlab = expression(s)
+  )
+```
+
+## Gráficos por año
+
+\centering
+
+\tiny
+
+```{r, out.width = "0.8 \\textwidth"}
+layout(matrix(1:2, nrow = 2, ncol = 1), heights = c(0.90, 0.10))
+par(mar = c(3.1, 4.1, 1.5, 2.1))
+matplot(
+  t(z_mat),
+  type = "l",
+  col  = 1:nrow(z_mat),
+  lty  = 1,
+  main = expression("Venta de Gaseosas"),
+  ylab = expression("Miles de litros"),
+  xlab = expression(s)
+  )
+
+par(mar = c(0, 0, 0, 0))
+par(mai = c(0, 0, 0, 0))
+plot.new()
+legend(
+  x      = "center",
+  legend = names(z_ano),
+  bty    = "n",
+  fill   = 1:nrow(z_mat),
+  ncol   = ceiling(nrow(z_mat) / 2),
+  cex    = 0.7
+)
+```
+
+\tiny \metroset{block=fill}
+\begin{exampleblock}{\small Discusión en clases}
+¿Qué conclusiones podrían extraerse sobre la tendencia y la estacionalidad a partir de este gráfico?
+\end{exampleblock}
+
+## Descomposición con medias móviles
+
+\centering
+
+\tiny
+
+\[
+Z_t = \mathcal{T} \times \mathcal{S} \times \mathcal{E}
+\]
+
+\raggedleft
+
+* $\mathcal{T}$ Tendencia: Media móvil centrada de 13 elementos.
+* $\mathcal{S}$ Estacionalidad: Promedio por mes para todos los años, luego centrado.
+* $\mathcal{E}$ Irregular: Diferencia entre el valor observado y la tendencia con estacionalidad ajustada.
+* $p \in \mathbb{N}$ períodos completos.
+
+\[
+\hat{\mathcal{T}}_t = \frac{1}{24}\left(Z_{t-6} + 2\sum_{i = -5}^{5}{Z_{t-i}} + Z_{t+6}\right) \qquad \hat{\mathcal{S}}_j = \frac{\frac{1}{p} \sum_{i = 1}^{p}{Z_{ij}}}{\frac{1}{T}\sum_{t = 1}^{T}{Z_t}}, j = 1, 2, \dots, 12 \qquad \hat{\mathcal{E}}_t = \frac{Z_t}{\hat{\mathcal{T}}_t + \hat{\mathcal{S}}_j}
+\]
+
+## Descomposición con medias móviles (continuación)
+
+\centering
+
+\tiny
+
+```{r, echo = TRUE}
+z_ts <- ts(z, frequency = 12) # stl requiere un objeto del tipo ts
+z_mm <- decompose(z_ts, type = "multiplicative")
+
+print(
+  head(z_mm$seasonal, 12),
+  digits = 2
+)
+```
+
+## Descomposición con medias móviles (continuación)
+
+\centering
+
+\tiny
+
+```{r}
+par(mar = c(5.1, 4.1, 0, 2.1))
+myPlot.decomposed.ts(
+  z_mm,
+  main = "",
+  xlab = expression(t)
+  )
+```
+
+## Descomposición con LOESS ^[@hyndman2018forecasting, sec. 6.6. [Ver online](https://otexts.org/fpp2/stl.html).]
+
+\centering
+
+\tiny
+
+\[
+\ln(Z_t) = \mathcal{T} + \mathcal{S} + \mathcal{E}
+\]
+
+\raggedleft
+
+* $\mathcal{T}$ Tendencia: Polinomio local de grado 1 sobre 13 observaciones móviles.
+* $\mathcal{S}$ Estacionalidad: Polinomio local de grado 0 sobre todas las observaciones.
+* $\mathcal{E}$ Irregular: Diferencia entre el valor observado y la tendencia con estacionalidad ajustada.
+
+```{r, echo = TRUE}
+z_stl <- stl(log(z_ts[, 1]), t.window = 13, s.window = "periodic")
+
+print(
+  head(exp(z_stl$time.series[, 1]), 12),
+  digits = 2
+)
+```
+
+## Descomposición con LOESS (continuación)
+
+\centering
+
+\tiny
+
+```{r}
+plot(
+  z_stl,
+  labels = c(
+    expression(Z[t]), 
+    expression(hat(T[t])), 
+    expression(hat(S[t])), 
+    expression(hat(E[t]))
+    )
+  )
+```
+
+## Descomposición con regresión lineal
+
+\centering
+
+\tiny
+
+\centering
+
+\tiny
+
+\[
+\ln(Z_t) = \mathcal{T} + \mathcal{S} + \mathcal{E}
+\]
+
+\raggedleft
+
+* $\mathcal{T}$ Tendencia: Regresión lineal por partes con nodos en $t = 97$ (ene-02) y $t = 169$ (ene-08).
+* $\mathcal{S}$ Estacionalidad: Variable dummy para cada mes (emplea a enero como mes de referencia).
+* $\mathcal{E}$ Irregular: Residuos.
+
+```{r, echo = TRUE}
+t1   <- which(index(z) == "2002-01-01")
+t2   <- which(index(z) == "2008-01-01")
+t    <- 1:length(z)
+tdum <- cbind(
+  t >= t1 & t < t2,
+  t >= t2
+) * 1
+
+s_t <- factor(format(index(z), "%m"))
+fit <- lm(log(z) ~ t * tdum + s_t)
+```
+
+## Descomposición con regresión lineal (continuación)
+
+\centering
+
+\Tiny
+
+```{r}
+print(summary(fit))
+```
+
+## Descomposición con regresión lineal (continuación)
+
+\centering
+
+\tiny
+
+```{r, out.width = "\\textwidth"}
+plot_seq(
+  z,
+  ticks.on = "months",
+  format.labels = "%m-%y",
+  main = expression("Ventas de gaseosas"), 
+  ylab = expression("Miles de litros"), 
+  xlab = expression(t), 
+  type = "l",
+  col = "darkgray",
+  cex = 1,
+  cex.axis = 1,
+  cex.lab = 1,
+  cex.main = 1
+  )
+
+add_lines(cbind(z, exp(fitted(fit)))[, 2], col = "blue", lwd = 1)
+
+legend(
+  "bottomright",
+  legend = c(expression(Z[t]), expression(hat(Z)[t])),
+  col = c("darkgray", "blue"),
+  lwd = 1,
+  bty = "n",
+  horiz = TRUE,
+  cex = 1
+)
+```
+
+## $SARIMA(1, 1, 1) \times (1, 1, 1)_4$
+
+\centering
+
+\tiny
+
+![@hyndman2018forecasting. [Ver online](https://otexts.org/fpp2/seasonal-arima.html).](img/sarima111_111_4.png)
+
+## SARIMA
+
+\centering
+
+\tiny
+<!--
+\[
+\ln(Z_t) = \dots
+\]
+-->
+\raggedleft
+
+* Transformación logarítmica para estabilizar la varianza.
+* Autorregresivo regular de orden $p = 2$.
+* Diferenciación regular de orden $d = 1$.
+* Media móvil regular de orden $q = 2$.
+* Media móvil estacional de orden $Q = 2$.
+
+## Serie transformada (ln)
+
+```{r}
+tsdisplay(
+  log(z),
+  main = expression("log" ~ Z_t)
+  )
+```
+
+## Primera diferencia de la serie transformada (ln)
+
+```{r}
+tsdisplay(
+  diff(log(z)),
+  main = expression(nabla ~ "log" ~ Z_t)
+  )
+```
+
+## Ajuste
+
+\centering
+
+\tiny
+
+```{r, echo = TRUE}
+fit <- Arima(
+  log(z_ts),
+  order    = c(2, 1, 2),
+  seasonal = c(2, 0, 0)
+)
+
+print(fit)
+```
+
+## Ajuste (continuación)
+
+\centering
+
+\tiny
+
+```{r, out.width = "\\textwidth"}
+plot_seq(
+  z,
+  ticks.on = "months",
+  format.labels = "%m-%y",
+  main = expression("Ventas de gaseosas"), 
+  ylab = expression("Miles de litros"), 
+  xlab = expression(t), 
+  type = "l",
+  col = "darkgray",
+  cex = 1,
+  cex.axis = 1,
+  cex.lab = 1,
+  cex.main = 1
+  )
+
+add_lines(as.xts(exp(fitted(fit))), col = "blue", lwd = 1)
+
+legend(
+  "bottomright",
+  legend = c(expression(Z[t]), expression(hat(Z)[t])),
+  col = c("darkgray", "blue"),
+  lwd = 1,
+  bty = "n",
+  horiz = TRUE,
+  cex = 1
+)
+```
+
+## Diagnóstico de residuos
+
+\centering
+
+\tiny
+
+```{r, out.width = "1 \\textwidth"}
+par(mfrow = c(2, 2))
+Acf(
+  residuals(fit), 
+  type = "correlation",
+  main = "Residuos"
+  )
+
+Acf(
+  residuals(fit), 
+  type = "partial",
+  main = "Residuos"
+  )
+
+hist(
+  residuals(fit), 
+  breaks = "FD",
+  freq = FALSE,
+  main = "Histograma de residuos",
+  xlab = "Residuos",
+  ylab = "Densidad",
+  border = "gray",
+  col = "darkgray"
+  )
+
+lines(
+  density(residuals(fit)),
+  col = "blue",
+  lwd = 2
+)
+
+curve(
+  dnorm(x, 0, sd(residuals(fit))),
+  col = "orange",
+  add = TRUE,
+  lwd = 2
+)
+
+legend(
+  x = "topright",
+  legend = c("Kernel", as.expression(bquote(N(0, .(sprintf("%0.2f", sd(residuals(fit)))))))),
+  bty = "n",
+  col = c("blue", "orange"),
+  lwd = 2
+)
+
+qqnorm(
+  residuals(fit),
+  main = "QQ Residuos",
+  xlab = "Cuantiles teóricos",
+  ylab = "Cuantiles muestrales",
+  pch = 21,
+  bg = "darkgray",
+  col = "gray"
+  )
+
+qqline(residuals(fit))
+```
+
+## Ejercicio: Ventas en supermercados
+
+\tiny \metroset{block=fill}
+\begin{block}{\small Ejercicio en clases}
+Analizar la serie de tiempo de ejemplo.
+\end{block}
+
+\vfill
+
+Además de ajustar modelos, el ejercicio nos induce a pensar cómo comparar dos modelos (se abordará formalmente en las próximas clases). Solución disponible en el anexo.
+
+Algunos pasos:
+
+* Descargar los datos desde https://bit.ly/2GXzXoa.
+* De la Sección A 1.11, leer los datos mensuales para la columna *Ventas totales* ^[Hay una copia local en `data/INDECSuper.txt` en caso de que el sitio esté fuera de línea.].
+* Graficar y describir la serie original. ¿Es estacionaria en la media y en la varianza? ¿Observan tendencia y estacionalidad? ¿De qué tipo?
+* Ajustar un modelo $SARIMA(0, 1, 3)(1, 0, 2)_{12}$ sobre el logaritmo de las ventas. Además, proponer y ajustar un modelo seleccionado entre las otras metodologías vistas en clases.
+* Evaluar los ajustes.
+* ¿Cómo evaluarían cuál es mejor? Antes que eso... ¿qué entienden por "mejor"?
+
+# Anexo: Ventas en supermercados
+
+## Lectura & procesamiento
+
+\centering
+
+\tiny
+
+```{r, echo = TRUE}
+# https://bit.ly/2GXzXoa
+df <- read.table(
+  file = "data//INDECSuper.txt", 
+  header = TRUE,
+  sep = "\t"
+)
+
+df[, 1] <- as.POSIXct(df[, 1], format = "%Y-%m-%d")
+
+z <- xts(x = df[, 2] / 1000, order.by = df[, 1])
+z_ts <- ts(z, frequency = 12) # stl requiere un objeto del tipo ts
+
+t(head(z, 9))
+```
+
+## Visualización
+
+\centering
+
+\tiny
+
+```{r}
+plot_seq(
+  z,
+  ticks.on = "months",
+  format.labels = "%m-%y",
+  main = expression("Ventas en supermercados"), 
+  ylab = expression("Miles de millones de pesos"),
+  xlab = expression(t), 
+  type = "l",
+  col = "darkgray",
+  cex = 1,
+  cex.axis = 1,
+  cex.lab = 1,
+  cex.main = 1
+  )
+```
+
+## Serie transformada (ln)
+
+```{r}
+tsdisplay(
+  log(z),
+  main = expression("log" ~ Z_t)
+  )
+```
+
+## Primera diferencia de la serie transformada (ln)
+
+```{r}
+tsdisplay(
+  diff(log(z)),
+  main = expression(nabla ~ "log" ~ Z_t)
+  )
+```
+
+## Ajuste
+
+\centering
+
+\tiny
+
+```{r, echo = TRUE}
+fit <- Arima(
+  log(z_ts),
+  order    = c(0, 1, 3),
+  seasonal = c(1, 0, 2)
+)
+
+print(fit)
+```
+
+## Ajuste versus observado
+
+\centering
+
+\tiny
+
+```{r, out.width = "\\textwidth"}
+plot_seq(
+  z,
+  ticks.on = "months",
+  format.labels = "%m-%y",
+  main = expression("Ventas en supermercados"), 
+  ylab = expression("Miles de millones de pesos"), 
+  xlab = expression(t), 
+  type = "l",
+  col = "darkgray",
+  cex = 1,
+  cex.axis = 1,
+  cex.lab = 1,
+  cex.main = 1
+  )
+
+add_lines(
+  as.xts(exp(fitted(fit))),
+  col = "blue", 
+  lwd = 1
+  )
+
+legend(
+  "bottomright",
+  legend = c(expression(Z[t]), expression(hat(Z)[t])),
+  col = c("darkgray", "blue"),
+  lwd = 1,
+  bty = "n",
+  horiz = TRUE,
+  cex = 1
+)
+```
+
+## Diagnóstico de residuos
+
+\centering
+
+\tiny
+
+```{r, out.width = "1 \\textwidth"}
+par(mfrow = c(2, 2))
+Acf(
+  residuals(fit), 
+  type = "correlation",
+  main = "Residuos"
+  )
+
+Acf(
+  residuals(fit), 
+  type = "partial",
+  main = "Residuos"
+  )
+
+hist(
+  residuals(fit), 
+  breaks = "FD",
+  freq = FALSE,
+  main = "Histograma de residuos",
+  xlab = "Residuos",
+  ylab = "Densidad",
+  border = "gray",
+  col = "darkgray"
+  )
+
+lines(
+  density(residuals(fit)),
+  col = "blue",
+  lwd = 2
+)
+
+curve(
+  dnorm(x, 0, sd(residuals(fit))),
+  col = "orange",
+  add = TRUE,
+  lwd = 2
+)
+
+legend(
+  x = "topright",
+  legend = c("Kernel", as.expression(bquote(N(0, .(sprintf("%0.2f", sd(residuals(fit)))))))),
+  bty = "n",
+  col = c("blue", "orange"),
+  lwd = 2
+)
+
+qqnorm(
+  residuals(fit),
+  main = "QQ Residuos",
+  xlab = "Cuantiles teóricos",
+  ylab = "Cuantiles muestrales",
+  pch = 21,
+  bg = "darkgray",
+  col = "gray"
+  )
+
+qqline(residuals(fit))
+```
+
+## Descomposición con medias móviles
+
+\centering
+
+\tiny
+
+```{r}
+z_mm <- decompose(z_ts, type = "multiplicative")
+
+myPlot.decomposed.ts(
+  z_mm,
+  main = "",
+  xlab = expression(t)
+  )
+```
+
+## Componente irregular
+
+\centering
+
+\tiny
+
+```{r, out.width = "1 \\textwidth"}
+res <- as.numeric(na.omit(z_mm$random))
+par(mfrow = c(2, 2))
+Acf(
+  res, 
+  type = "correlation",
+  main = "Irregular"
+  )
+
+Acf(
+  res, 
+  type = "partial",
+  main = "Irregular"
+  )
+
+hist(
+  res, 
+  breaks = "FD",
+  freq = FALSE,
+  main = "Histograma de Irregular",
+  xlab = "Irregular",
+  ylab = "Densidad",
+  border = "gray",
+  col = "darkgray"
+  )
+
+lines(
+  density(res),
+  col = "blue",
+  lwd = 2
+)
+
+curve(
+  dnorm(x, 1, sd(res)),
+  col = "orange",
+  add = TRUE,
+  lwd = 2
+)
+
+legend(
+  x = "topright",
+  legend = c("Kernel", as.expression(bquote(N(0, .(sprintf("%0.2f", sd(res))))))),
+  bty = "n",
+  col = c("blue", "orange"),
+  lwd = 2
+)
+
+qqnorm(
+  res,
+  main = "QQ Irregular",
+  xlab = "Cuantiles teóricos",
+  ylab = "Cuantiles muestrales",
+  pch = 21,
+  bg = "darkgray",
+  col = "gray"
+  )
+
+qqline(res)
+```
+
+Tomar los gráficos sólo a fines descriptivos. La descomposición con medias móviles no hace supuestos distribucionales.
+
+## Referencias
+
+\tiny

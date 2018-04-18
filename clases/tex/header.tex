@@ -1,0 +1,138 @@
+% Yay!
+% #000000 # 1 Negro
+% #002269 # 2 Azul FIRST
+% #CF102D # 3 Rojo FIRST
+% #63656A # 4 Gris FIRST
+% #E41F26 # 5 Rojo  secundario
+% #2EA147 # 6 Verde secundario
+% #1D79B4 # 7 Azul  secundario
+% #E6E6E6 # 8 Gris  secundario
+
+\definecolor{Negro}{HTML}{000000}
+\definecolor{Blanco}{HTML}{FFFFFF}
+\definecolor{Azul_FIRST}{HTML}{002269}
+\definecolor{Rojo_FIRST}{HTML}{CF102D}
+\definecolor{Gris_FIRST}{HTML}{63656A}
+\definecolor{Rojo_secundario}{HTML}{E41F26}
+\definecolor{Verde_secundario}{HTML}{2EA147}
+\definecolor{Azul_secundario}{HTML}{1D79B4}
+\definecolor{Gris_secundario}{HTML}{E6E6E6}
+
+\setbeamercolor{frametitle}{bg = Verde_secundario}
+\setbeamercolor{progress bar}{fg = Verde_secundario}
+\setbeamercolor{title separator}{fg = Verde_secundario}
+
+\setbeamerfont{footline}{size=\fontsize{9}{11}\selectfont}
+\setbeamertemplate{footline}{
+  \fontsize{4}{6}\selectfont
+
+  \hfill
+  Maestría en Estadística Aplicada, UNR
+  \hfill
+  |
+  \hfill
+  Series de Tiempo (2018)
+  \hfill
+  |
+  \hfill
+  \insertframenumber/\inserttotalframenumber
+  \hfill
+  \break
+}
+
+\setbeamerfont{footnote}{size=\tiny}
+
+\usepackage{layouts}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{bm}
+
+\def\begincols{\begin{columns}}
+\def\begincol{\begin{column}}
+\def\endcol{\end{column}}
+\def\endcols{\end{columns}}
+
+\hypersetup{
+  colorlinks,
+  allcolors = .,
+  urlcolor  = Verde_secundario,
+}
+
+% Reference size
+\setbeamerfont{bibliography item}{size=\footnotesize}
+\setbeamerfont{bibliography entry author}{size=\footnotesize}
+\setbeamerfont{bibliography entry title}{size=\footnotesize}
+\setbeamerfont{bibliography entry location}{size=\footnotesize}
+\setbeamerfont{bibliography entry note}{size=\footnotesize}
+
+% Reference break fix
+% https://stackoverflow.com/a/35681531/2860744
+% \widowpenalties{1}{150}
+
+% Math commands Operators
+\newcommand{\rank}[1]{\text{ran} \left( #1 \right)}
+\newcommand{\med}[1]{\text{med} \left( #1 \right)}
+\newcommand{\CI}[2]{\text{IC}_{#1} \left( #2 \right)}
+\newcommand{\bias}[1]{\text{sesgo} \left( #1 \right)}
+\newcommand{\cor}[2]{\text{corr} \left( #1, #2 \right)}
+\newcommand{\var}[1]{\text{VaR} \left( #1 \right)}
+\newcommand{\varr}[1]{\text{VR}}
+\DeclareMathOperator{\evsym}{E}
+\newcommand\ev[1]{\evsym\left\langle#1\right\rangle}
+\DeclareMathOperator{\vsym}{V}
+\newcommand\vv[1]{\vsym\left\langle#1\right\rangle}
+\DeclareMathOperator{\covsym}{Cov}
+\newcommand\cv[1]{\covsym\left\langle#1\right\rangle}
+\DeclareMathOperator{\corrsym}{Corr}
+\newcommand\corrv[1]{\corrsym\left\langle#1\right\rangle}
+\newcommand\evs[2]{\evsym_{#1}\left\langle#2\right\rangle} % Expectation with subscript
+\newcommand\vvs[2]{\vsym_{#1}\left\langle#2\right\rangle} % Variance with subscript
+\DeclareMathOperator{\kusym}{Ku}
+\newcommand\ku[1]{\kusym\left\langle#1\right\rangle}
+%\newcommand\ind[1]{\mathcal{I}_{\left( #1 \right)}}
+\newcommand\ind[1]{\mathbb{I}_{\left( #1 \right)}}
+\newcommand\Real{\mathbb{R}}
+
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator*{\argmax}{arg\,max}
+
+\newcommand{\NN}{\mathcal{N}}
+
+% https://tex.stackexchange.com/a/130584
+\makeatletter
+\newcommand\ChangeItemFont[3]{%
+\renewcommand{\itemize}[1][]{%
+  \beamer@ifempty{##1}{}{\def\beamer@defaultospec{#1}}%
+  \ifnum \@itemdepth >2\relax\@toodeep\else
+    \advance\@itemdepth\@ne
+    \beamer@computepref\@itemdepth% sets \beameritemnestingprefix
+    \usebeamerfont{itemize/enumerate \beameritemnestingprefix body}%
+    \usebeamercolor[fg]{itemize/enumerate \beameritemnestingprefix body}%
+    \usebeamertemplate{itemize/enumerate \beameritemnestingprefix body begin}%
+    \list
+      {\usebeamertemplate{itemize \beameritemnestingprefix item}}
+      {\def\makelabel####1{%
+          {%
+            \hss\llap{{%
+                \usebeamerfont*{itemize \beameritemnestingprefix item}%
+                \usebeamercolor[fg]{itemize \beameritemnestingprefix item}####1}}%
+          }%
+        }%
+  \ifnum\@itemdepth=1\relax
+    #1%
+  \else
+  \ifnum\@itemdepth=2\relax
+    #2%
+  \else
+  \ifnum\@itemdepth=3\relax
+    #3%
+  \fi%
+  \fi%
+  \fi%
+  }
+  \fi%
+  \beamer@cramped%
+  \raggedright%
+  \beamer@firstlineitemizeunskip%
+}}
+\makeatother

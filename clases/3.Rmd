@@ -1,0 +1,770 @@
+---
+title: "Series de Tiempo 2018"
+subtitle: "Maestría en Estadística Aplicada, UNR \\newline Unidad 3"
+author: "Luis Damiano \\newline damiano.luis@gmail.com"
+date: "`r Sys.Date()`"
+output:
+  beamer_presentation:
+    keep_tex: false
+    latex_engine: pdflatex
+    theme: metropolis
+    toc: false
+    slide_level: 2
+    incremental: false
+    includes:
+      in_header: tex/header.tex
+header-includes:
+  - \widowpenalties 1 150
+fontsize: 11pt
+classoption: compress
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(quantmod)
+library(forecast)
+library(xtable)
+source("R/plots.R")
+```
+
+## Contenido
+
+* Procesos autorregresivos.
+* Procesos de media móvil.
+* Procesos ARMA.
+
+# Procesos autorregresivos
+
+## Proceso autorregresivo de primer orden
+
+Proceso autorregresivo de primer orden $AR(1)$
+
+\[
+Z_t = \phi_1 Z_{t-1} + a_t, \ t = 0, \pm 1, \dots
+\]
+
+con ${a_t} \sim \text{WN}(0, \sigma^2)$, $|\phi_1| < 1$, y $a_t$ no está 
+correlacionado con $Z_s$ para todo $s < t$ [@brockwell2016introduction, p. 15].
+
+\vfill \tiny \metroset{block=fill}
+\begin{exampleblock}{\small Discusión en clases}
+  ¿Cómo simularían una muestra del proceso, dado el valor de los parámetros?
+\end{exampleblock}
+
+## Simulación
+
+\[
+Z_t - \phi_1 Z_{t-1} = a_t, \ t = 0, \pm 1, \dots, \ a_t \sim \NN(0, \sigma^2)
+\]
+
+\tiny
+
+```{r, echo = TRUE}
+simAR1 <- function(phi1, sigma, Z0, T) {
+  TT <- 2 * T
+
+  # Ruido
+  at <- rnorm(TT, 0, sigma)
+  
+  # Observaciones
+  Zt <- vector("numeric", TT)
+  Zt[1] <- Z0
+  for (t in 2:TT) {
+    Zt[t] <- phi1 * Zt[t - 1] + at[t]
+  }
+  
+  # Descartamos la primera mitad para eliminar la influencia del valor inicial
+  tail(Zt, T)
+}
+```
+
+## Ejemplo
+
+\[
+Z_t - 0.5 Z_{t-1} = a_t, \ t = 0, \pm 1, \dots, \ a_t \sim \NN(0, 1)
+\]
+
+\tiny
+
+\begincols
+  \begincol{.48\textwidth}
+
+```{r, echo = TRUE}
+set.seed(9000)
+z <- simAR1(-0.5, 1, 0, 100)
+
+library(forecast)
+fit   <- Arima(
+  z, 
+  order = c(1, 0, 0), 
+  include.mean = FALSE
+  )
+
+lmfit <- lm(z[-1] ~ z[-length(z)] - 1)
+```
+
+  \endcol
+  \begincol{.48\textwidth}
+
+```{r, out.width = "0.8 \\textwidth"}
+plot(
+  z,
+  main = expression("Realización muestral de AR(1) con" ~ phi[1] == -0.5), 
+  xlab = expression(t), 
+  ylab = "",
+  type = "l",
+  col = "darkgray",
+  cex = 2,
+  cex.axis = 2,
+  cex.lab = 1.25,
+  cex.main = 2
+  )
+
+lines(fitted(fit), col = "blue", lwd = 1)
+
+legend(
+  "bottomright",
+  legend = c(expression(Z[t]), expression(hat(Z)[t])),
+  col = c("darkgray", "blue"),
+  lwd = 1,
+  bty = "n",
+  horiz = TRUE,
+  cex = 2
+)
+
+plot(
+  x = z[-length(z)], 
+  y = z[-1],
+  xlab = expression(Z[t - 1]),
+  ylab = expression(Z[t]),
+  pch = 21,
+  bg  = "darkgray",
+  col = "darkgray",
+  cex = 2,
+  cex.axis = 2,
+  cex.lab = 1.25,
+  cex.main = 2
+)
+
+abline(lmfit)
+
+legend(
+  x = "topleft",
+  legend = c(
+    as.expression(bquote(hat(Phi[1]) == ~ .(sprintf("%0.2f", coef(lmfit))))),
+    as.expression(bquote(hat(rho) == ~ .(sprintf("%0.2f", cor(z[-1], z[-length(z)])))))
+  ),
+  bty = "n",
+  cex = 2
+)
+```
+
+  \endcol
+\endcols
+
+## Estimaciones muestrales
+
+\centering
+
+```{r, fig.height = 4}
+par(mfrow = c(1, 2))
+Acf(
+  z, 
+  type = "correlation",
+  main = expression("Realización muestral de AR(1) con" ~ phi[1] == 0.5)
+  )
+Acf(
+  z, 
+  type = "partial",
+  main = expression("Realización muestral de AR(1) con" ~ phi[1] == 0.5)
+  )
+```
+
+\vfill \tiny \metroset{block=fill}
+\begin{block}{\small Ejercicio en clases}
+Analíticamente, encontrar la función de autocorrelación y la función de autocorrelación parcial.
+\end{block}
+
+## Modelo ajustado
+
+\tiny
+
+```{r}
+print(fit)
+```
+
+\vfill \tiny \metroset{block=fill}
+\begin{exampleblock}{\small Discusión en clases}
+  ¿Cuáles son todos los supuestos del modelo? ¿Cómo validarían cada uno de ellos?
+\end{exampleblock}
+
+## Diagnóstico de residuos
+
+\tiny
+
+\centering
+
+```{r, out.width = "0.9 \\textwidth"}
+par(mfrow = c(2, 2))
+Acf(
+  residuals(fit), 
+  type = "correlation",
+  main = "Residuos"
+  )
+
+Acf(
+  residuals(fit), 
+  type = "partial",
+  main = "Residuos"
+  )
+
+hist(
+  residuals(fit), 
+  breaks = "FD",
+  freq = FALSE,
+  main = "Histograma de residuos",
+  xlab = "Residuos",
+  ylab = "Densidad",
+  border = "gray",
+  col = "darkgray"
+  )
+
+lines(
+  density(residuals(fit)),
+  col = "blue",
+  lwd = 2
+)
+
+curve(
+  dnorm(x, 0, sd(residuals(fit))),
+  col = "orange",
+  add = TRUE,
+  lwd = 2
+)
+
+legend(
+  x = "topright",
+  legend = c("Kernel", as.expression(bquote(N(0, .(sprintf("%0.2f", sd(residuals(fit)))))))),
+  bty = "n",
+  col = c("blue", "orange"),
+  lwd = 2
+)
+
+qqnorm(
+  residuals(fit),
+  main = "QQ Residuos",
+  xlab = "Cuantiles teóricos",
+  ylab = "Cuantiles muestrales",
+  pch = 21,
+  bg = "darkgray",
+  col = "gray"
+  )
+
+qqline(residuals(fit))
+```
+
+¿Qué supuestos estamos diagnosticando? Hay un supuesto implícito que no estamos probando...
+
+## Diagnóstico ¿predictivo?
+
+\centering
+
+\tiny
+
+Una forma diferente de diagnosticar el modelo: simular datos bajo el modelo ajustado y comparar estadísticos de resumen contra la muestra observada. ¿Qué decisiones hubiesen tomado con una muestra diferente?^[If the model fits, then replicated data generated under the model should look similar to observed data. [...] Any systematic differences between the simulations and the data indicate potential failings of the model [@gelman2014bayesian, p 143].]
+
+\tiny
+
+\begincols
+  \begincol{.48\textwidth}
+
+```{r, echo = TRUE}
+phiHat   <- coef(fit)
+sigmaHat <- sd(residuals(fit))
+genN     <- 500 # Generar genN muestras según modelo
+genMin   <- vector("numeric", genN)
+genMed   <- vector("numeric", genN)
+genMax   <- vector("numeric", genN)
+for (n in 1:genN) {
+  gen <- simAR1(phiHat, sigmaHat, 0, length(z))
+  genMin[n] <- min(gen)
+  genMed[n] <- median(gen)
+  genMax[n] <- max(gen)
+}
+gen      <- simAR1(phiHat, sigmaHat, 0, length(z))
+```
+
+  \endcol
+  \begincol{.48\textwidth}
+
+```{r, out.width = "0.8 \\textwidth"}
+hist(
+  genMed, 
+  breaks = "FD",
+  freq = FALSE,
+  main = "Distribución el valor mediano",
+  xlab = "Mediana",
+  ylab = "Densidad",
+  border = "gray",
+  col = "darkgray",
+  cex = 2,
+  cex.axis = 2,
+  cex.lab = 1.5,
+  cex.main = 2
+  )
+
+abline(v = median(z))
+text(
+  x = median(z), 
+  y = 0.9 * par()$usr[4], 
+  labels = "Mediana observada", 
+  pos = 2,
+  cex = 2
+  )
+```
+
+```{r, out.width = "0.8 \\textwidth"}
+hist(
+  genMax, 
+  breaks = "FD",
+  freq = FALSE,
+  main = "Distribución el valor máximo",
+  xlab = "Mínimo",
+  ylab = "Densidad",
+  border = "gray",
+  col = "darkgray",
+  cex = 2,
+  cex.axis = 2,
+  cex.lab = 1.5,
+  cex.main = 2
+  )
+
+abline(v = max(z))
+text(
+  x = max(z),
+  y = 0.9 * par()$usr[4], 
+  labels = "Máximo observado", 
+  pos = 4,
+  cex = 2
+  )
+```
+
+  \endcol
+\endcols
+
+## Qué sucede si...
+
+\tiny \metroset{block=fill}
+\begin{exampleblock}{\small Discusión en clases}
+  ¿Cuáles son las restricciones que se imponen sobre el coeficiente autorregresivo? ¿Qué imaginan que suceda si no se cumplen?
+\end{exampleblock}
+
+## Qué sucede si...
+
+\centering
+
+\tiny
+
+AR(1) siempre es invertible. Para que sea estacionario, se requiere que $|\phi_1| < 1$.
+
+```{r, out.width = "0.9 \\textwidth"}
+par(mfrow = c(2, 2))
+
+plot(
+  simAR1(1, 1, 0, 100),
+  main = expression("Realización muestral de AR(1) con" ~ phi[1] == 1.0), 
+  ylab = expression(Z[t]), 
+  xlab = expression(t), 
+  type = "l",
+  col = "darkgray"
+  )
+
+plot(
+  simAR1(1.5, 1, 0, 100),
+  main = expression("Realización muestral de AR(1) con" ~ phi[1] == 1.5), 
+  ylab = expression(Z[t]), 
+  xlab = expression(t), 
+  type = "l",
+  col = "darkgray"
+  )
+
+plot(
+  simAR1(-1, 1, 0, 100),
+  main = expression("Realización muestral de AR(1) con" ~ phi[1] == -1.0), 
+  ylab = expression(Z[t]), 
+  xlab = expression(t), 
+  type = "l",
+  col = "darkgray"
+  )
+
+plot(
+  simAR1(-1.5, 1, 0, 100),
+  main = expression("Realización muestral de AR(1) con" ~ phi[1] == -1.5), 
+  ylab = expression(Z[t]), 
+  xlab = expression(t), 
+  type = "l",
+  col = "darkgray"
+  )
+```
+
+## Proceso autorregresivo de segundo orden
+
+El siguiente es un proceso $AR(2)$:
+
+\[
+Z_t - 1.3 Z_{t-1} + 0.4 Z_{t-2} = a_t, \ t = 0, \pm 1, \dots, \ a_t \sim \NN(0, 1).
+\]
+
+Para divertirse en casa:
+
+* Escribir código para simular un conjunto de datos.
+* Emplear `Arima` para estimar el valor de los parámetros y corroborar contra los valores prefijados.
+* Emplear `Acf` para estimar las funciones ACF y PACF y corroborar con los resultados analíticos.
+* Prueben de romper el modelo desafiando las condiciones de estacionariedad :)
+
+# Procesos de medias móviles
+
+## Proceso medias móviles de primer orden
+
+Proceso de medias móviles de primer orden $MA(1)$
+
+\[
+Z_t = a_t - \theta_1 a_{t-1}, \ t = 0, \pm 1, \dots
+\]
+
+con ${a_t} \sim \text{WN}(0, \sigma^2)$, $\theta \in \Real$ [@brockwell2016introduction, p. 15].
+
+\vfill \tiny \metroset{block=fill}
+\begin{exampleblock}{\small Discusión en clases}
+  ¿Cómo simularían una muestra del proceso, dado el valor de los parámetros?
+\end{exampleblock}
+
+## Simulación
+
+\[
+Z_t = a_t - \theta_1 a_{t-1}, \ t = 0, \pm 1, \dots, \ a_t \sim \NN(0, \sigma^2)
+\]
+
+\tiny
+
+```{r, echo = TRUE}
+simMA1 <- function(theta1, sigma, Z0, T) {
+  TT <- 2 * T
+
+  # Ruido
+  at <- rnorm(TT, 0, sigma)
+  
+  # Observaciones
+  Zt <- vector("numeric", TT)
+  Zt[1] <- Z0
+  for (t in 2:TT) {
+    Zt[t] <- at[t] - theta1 * at[t - 1]
+  }
+  
+  # Descartamos el primer 50%
+  tail(Zt, T)
+}
+```
+
+## Ejemplo
+
+\[
+Z_t = a_t - 0.8 a_{t-1}, \ t = 0, \pm 1, \dots, \ a_t \sim \NN(0, 1)
+\]
+
+\tiny
+
+\begincols
+  \begincol{.48\textwidth}
+
+```{r, echo = TRUE}
+set.seed(9000)
+z <- simMA1(0.8, 1, 0, 100)
+
+library(forecast)
+fit   <- Arima(
+  z, 
+  order = c(0, 0, 1), 
+  include.mean = FALSE
+  )
+```
+
+  \endcol
+  \begincol{.48\textwidth}
+
+```{r, out.width = "0.8 \\textwidth"}
+plot(
+  z,
+  main = expression("Realización muestral de MA(1) con" ~ theta[1] == 0.8),
+  ylab = "", 
+  xlab = expression(t), 
+  type = "l",
+  col = "darkgray",
+  cex = 2,
+  cex.axis = 2,
+  cex.lab = 1.25,
+  cex.main = 2
+  )
+
+lines(fitted(fit), col = "blue", lwd = 1)
+
+legend(
+  "bottomright",
+  legend = c(expression(Z[t]), expression(hat(Z)[t])),
+  col = c("darkgray", "blue"),
+  lwd = 1,
+  bty = "n",
+  horiz = TRUE,
+  cex = 2
+)
+```
+
+  \endcol
+\endcols
+
+## Estimaciones muestrales
+
+\centering
+
+```{r, fig.height = 4}
+par(mfrow = c(1, 2))
+Acf(
+  z, 
+  type = "correlation",
+  main = expression("Realización muestral de MA(1) con" ~ theta[1] == 0.8)
+  )
+Acf(
+  z, 
+  type = "partial",
+  main = expression("Realización muestral de MA(1) con" ~ theta[1] == 0.8)
+  )
+```
+
+\vfill \tiny \metroset{block=fill}
+\begin{block}{\small Ejercicio en clases}
+Analíticamente, encontrar la función de autocorrelación y la función de autocorrelación parcial.
+\end{block}
+
+## Modelo ajustado
+
+\tiny
+
+```{r}
+print(fit)
+```
+
+\vfill \tiny \metroset{block=fill}
+\begin{exampleblock}{\small Discusión en clases}
+  ¿Cuáles son todos los supuestos del modelo? ¿Cómo validarían cada uno de ellos?
+\end{exampleblock}
+
+## Diagnóstico de residuos
+
+\tiny
+
+\centering
+
+```{r, out.width = "0.9 \\textwidth"}
+par(mfrow = c(2, 2))
+Acf(
+  residuals(fit), 
+  type = "correlation",
+  main = "Residuos"
+  )
+
+Acf(
+  residuals(fit), 
+  type = "partial",
+  main = "Residuos"
+  )
+
+hist(
+  residuals(fit), 
+  breaks = "FD",
+  freq = FALSE,
+  main = "Histograma de residuos",
+  xlab = "Residuos",
+  ylab = "Densidad",
+  border = "gray",
+  col = "darkgray"
+  )
+
+lines(
+  density(residuals(fit)),
+  col = "blue",
+  lwd = 2
+)
+
+curve(
+  dnorm(x, 0, sd(residuals(fit))),
+  col = "orange",
+  add = TRUE,
+  lwd = 2
+)
+
+legend(
+  x = "topright",
+  legend = c("Kernel", as.expression(bquote(N(0, .(sprintf("%0.2f", sd(residuals(fit)))))))),
+  bty = "n",
+  col = c("blue", "orange"),
+  lwd = 2
+)
+
+qqnorm(
+  residuals(fit),
+  main = "QQ Residuos",
+  xlab = "Cuantiles teóricos",
+  ylab = "Cuantiles muestrales",
+  pch = 21,
+  bg = "darkgray",
+  col = "gray"
+  )
+
+abline(0, 1)
+```
+
+## Proceso promedio móvil de segundo orden
+
+El siguiente es un porceso $MA(2)$:
+
+\[
+Z_t = a_t - 1.2 a_{t-1} - 0.5 a_{t-2}, \ t = 0, \pm 1, \dots, \ a_t \sim \NN(0, 1)
+\]
+
+Para divertirse en casa:
+
+* Escribir código para simular un conjunto de datos.
+* Emplear `Arima` para estimar el valor de los parámetros y corroborar contra los valores prefijados.
+* Emplear `Acf` para estimar las funciones ACF y PACF y corroborar con los resultados analíticos.
+
+# Procesos ARMA
+
+## Proceso $ARMA(1, 1)$
+
+Proceso ARMA de orden $1, 1$
+
+\[
+Z_t = \phi_1 Z_{t-1} + \theta_1 a_{t-1} + a_t, \ t = 0, \pm 1, \dots
+\]
+
+con ${a_t} \sim \text{WN}(0, \sigma^2)$ y $\phi_1 + \theta_1 \ne 0$ [@brockwell2016introduction, p. 48]. El proceso es estacionario si y sólo si $\phi_1 \ne \pm 1$.
+
+\tiny
+
+Alternativamente,
+
+\begin{align*}
+Z_t - \phi_1 Z_{t-1} &= \theta_1 a_{t-1} + a_t \\
+\phi(B) Z_{t} &= \theta(B) a_t.
+\end{align*}
+
+## Proceso $ARMA(p, q)$
+
+Proceso ARMA de orden $p, q$
+
+\[
+Z_t = \phi_1 Z_{t-1} + \dots + \phi_p Z_{t-p} + \theta_1 a_{t-1} + \dots + \theta_q a_{t-q} + a_t, \ t = 0, \pm 1, \dots
+\]
+
+con ${a_t} \sim \text{WN}(0, \sigma^2)$, y los polinomios característicos no tienen factores en común [@brockwell2016introduction, p. 74]. El proceso es estacionario si y sólo si $1 - \phi_1 Z - \dots - \phi_p Z^p \ne 0$.
+
+\tiny
+
+Alternativamente,
+
+\begin{align*}
+Z_t - \phi_1 Z_{t-1} - \dots - \phi_p Z_{t-p} &= \theta_1 a_{t-1} + \dots + \theta_q a_{t-q} + a_t \\
+\phi(B) Z_{t} &= \theta(B) a_t.
+\end{align*}
+
+## Proceso autorregresivo $ARMA(2, 1)$
+
+El siguiente es un proceso $ARMA(2, 1)$:
+
+\[
+(1 - 1.4B + 0.6B^2) Z_t = (1 - 0.8B) a_t, \ t = 0, \pm 1, \dots, \ a_t \sim \NN(0, 1).
+\]
+
+Para divertirse en casa:
+
+* Emplear `arima.sim` para simular un conjunto de datos.
+* Emplear `Arima` para estimar el valor de los parámetros y corroborar contra los valores prefijados.
+* Emplear `Acf` para estimar las funciones ACF y PACF y corroborar con los resultados analíticos.
+
+## En resumen
+
+\tiny
+
+\begincols
+  \begincol{.48\textwidth}
+
+  **Teoría**
+  
+  Para los modelos AR, MA, y ARMA:
+  
+  * Especificación.
+  * Restricciones de los parámetros.
+  * Funciones de autocovariancia, autocorrelación, y autocorrelación parcial.
+  * Relación dual AR y MA.
+
+  \endcol
+  \begincol{.48\textwidth}
+
+  **Tareas**
+  
+  Para los procesos AR(2), MA(2), y ARMA(2):
+  
+  * Plantear el modelo.
+  * Explicitar (TODOS) los supuestos.
+  * Simular un conjunto de datos.
+  * Estimar estas cantidades en `R`.
+  * Encontrar analíticamente funciones de autocovariancia y autocorrelación.
+
+  \endcol
+\endcols
+
+\vfill \tiny \metroset{block=fill}
+\begin{exampleblock}{\small Discusión en clases}
+  ¿Preguntas, dudas, inquietudes, ansiedades, sugerencias?
+\end{exampleblock}
+
+# Anexo
+
+## Algunas propiedades útiles
+
+\tiny
+
+Sean $X$ e $Y$ variables aleatorias; $k, a, b \in \Real$ escalares constantes y finitos.
+
+**Esperanza**.
+\[
+\mu = \ev{k} = k \quad \ev{kX} = k \ev{X} \quad \ev{X + Y} = \ev{X} + \ev{Y} \quad \ev{XY} \ne \ev{X}\ev{Y}
+\]
+
+**Varianza**.
+\[
+\sigma = \vv{X} = \ev{(X - \ev{X})^2} = \ev{X^2} - \ev{X}^2 \quad \vv{X} \ge 0
+\]
+
+\[
+\vv{X + k} = \vv{X} \quad \vv{kX} = k^2 \vv{X} \quad \vv{aX \pm bY} = a^2 \vv{X} + b^2 \vv{Y} \pm 2ab\cv{X, Y}
+\]
+
+**Covarianza**. Como propiedad general, el operador de valor esperado no cumple con la propiedad multiplicativa. La diferencia está dada por la covariancia.
+\[
+\gamma = \cv{X, Y} = \ev{(X - \ev{X})(Y - \ev{Y})} = \ev{XY} - \ev{X} \ev{Y} \quad \cv{X, k} = 0 \quad \cv{X, X} = \vv{X}
+ \]
+ 
+ \[
+\cv{X, Y} = \cv{Y, X} \quad \cv{aX + bY} = ab \cv{X, Y} \quad \cv{X + a, Y + b} = \cv{X, Y}
+ \]
+
+**Correlación**.
+\[
+\rho = \corrv{X, Y} = \frac{\cv{X, Y}}{\sqrt{\vv{X}\vv{Y}}} \text{con} \vv{X} \ne 0 \wedge \vv{Y} \ne 0
+\]
+
+## Referencias
+
+\tiny
