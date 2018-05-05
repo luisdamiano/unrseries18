@@ -574,7 +574,7 @@ df <- read.table(
   sep = "\t"
 )
 
-df[, 1] <- as.POSIXct(df[, 1], format = "%Y-%m-%d")
+df[, 1] <- as.Date(df[, 1], format = "%Y-%m-%d")
 
 z <- xts(x = df[, 2] / 1000, order.by = df[, 1])
 z_ts <- ts(z, frequency = 12) # stl requiere un objeto del tipo ts
@@ -677,7 +677,7 @@ df <- read.table(
   sep = "\t"
 )
 
-df[, 1] <- as.POSIXct(df[, 1], format = "%Y-%m-%d")
+df[, 1] <- as.Date(df[, 1], format = "%Y-%m-%d")
 
 z <- xts(x = df[, 2] / 1000, order.by = df[, 1])
 z_ts <- ts(z, frequency = 12) # stl requiere un objeto del tipo ts

@@ -218,7 +218,7 @@ df <- read.table(
   dec = ","
 )
 
-df[, 1] <- as.POSIXct(df[, 1], format = "%d/%m/%Y")
+df[, 1] <- as.Date(df[, 1], format = "%d/%m/%Y")
 
 z <- xts(x = df[, 2], order.by = df[, 1])
 

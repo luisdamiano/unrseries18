@@ -186,7 +186,7 @@ df <- read.table(
   sep = "\t"
 )
 
-df[, 1] <- as.POSIXct(df[, 1], format = "%Y-%m-%d")
+df[, 1] <- as.Date(df[, 1], format = "%Y-%m-%d")
 
 x <- xts(x = df[, 2], order.by = df[, 1])
 z <- na.omit(rollmean(x, 12, fill = NA)) / 1E6
@@ -286,7 +286,7 @@ df <- read.table(
   sep = "\t"
 )
 
-df[, 1] <- as.POSIXct(df[, 1], format = "%Y-%m-%d")
+df[, 1] <- as.Date(df[, 1], format = "%Y-%m-%d")
 
 x <- xts(x = df[, 2] / 1000, order.by = df[, 1])
 z <- na.omit(rollmean(x, 12, fill = NA))
@@ -367,7 +367,7 @@ df <- read.table(
   sep = "\t"
 )
 
-df[, 1] <- as.POSIXct(df[, 1], format = "%Y-%m-%d")
+df[, 1] <- as.Date(df[, 1], format = "%Y-%m-%d")
 df[, 2] <- df[, 2] / 1000
 
 x <- xts(x = df[, 2], order.by = df[, 1])
@@ -578,7 +578,7 @@ df <- read.table(
   sep = "\t"
 )
 
-df[, 1] <- as.POSIXct(df[, 1], format = "%Y-%m-%d")
+df[, 1] <- as.Date(df[, 1], format = "%Y-%m-%d")
 
 x <- xts(x = df[, 2] / 1000, order.by = df[, 1])
 z <- na.omit(rollmean(x, 12, fill = NA))
