@@ -85,8 +85,8 @@ Débilmente estacionario:
 set.seed(9000)
 T  <- 1000
 mu <- 0
-sigmasq <- 1.5
-at <- rnorm(T, mu, sigmasq)
+sigma <- 1.5
+at <- rnorm(T, mu, sigma)
 ```
 
 ```{r}

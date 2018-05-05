@@ -53,7 +53,7 @@ ${a_t} \sim \text{WN}(0, \sigma^2)$
     * Prueba de bondad de ajuste $\chi^2$.
     * Pruebas de normalidad.
 * Centrado en cero.
-* varianza constante.
+* Varianza constante.
     * Gráfico de residuos.
 * Independencia condicional.
     * ACF y PACF muestral.
@@ -342,7 +342,7 @@ jb.norm.test(res)
   \endcol
 \endcols
 
-# varianza constante
+# Varianza constante
 
 ## Visualización
 

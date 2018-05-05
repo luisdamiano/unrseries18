@@ -84,9 +84,9 @@ Z_t = \alpha_0 + \alpha_1 t + a_t, \ t = 0, \pm 1, \dots, \ a_t \sim \NN(0, \sig
 \tiny
 
 ```{r, echo = TRUE}
-simTL <- function(alpha0, alpha1, sigmasq, T) {
+simTL <- function(alpha0, alpha1, sigma, T) {
   # Ruido
-  at <- rnorm(T, 0, sigmasq)
+  at <- rnorm(T, 0, sigma)
   
   # Observaciones
   t  <- 1:T

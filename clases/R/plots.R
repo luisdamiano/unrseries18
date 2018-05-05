@@ -34,7 +34,7 @@ myPlot.decomposed.ts <- function(x, ...) {
     Estacional = x$seasonal,
     Irregular = x$random
   )
-  colnames(X) <- c("Observaci?n", "Tendencia", "Estacional", "Irregular")
+  colnames(X) <- c("Observación", "Tendencia", "Estacional", "Irregular")
   # colnames(X) <- c(expression(Z[t]), expression(hat(T)[t]), expression(hat(S)[t]), expression(hat(E)[t]))
 
   plot(X, ...)
