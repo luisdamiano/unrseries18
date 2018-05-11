@@ -396,23 +396,27 @@ text(
   \begincol{.31\textwidth}
   
 ```{r, echo = TRUE, eval = FALSE}
-hist(
-  res, 
-  breaks = "FD",
-  freq = FALSE
+plot(
+  as.numeric(res),
+  col = "darkgray",
+  type = "l",
+  main = "",
+  xlab = expression(t),
+  ylab = expression(hat(a)[t])
 )
 
-lines(
-  density(res)
+plot(
+  rollapply(res, width = 22, FUN = sd, fill = NA, align = "right"),
+  col = "darkgray",
+  type = "l",
+  main = "",
+  xlab = expression(t),
+  ylab = expression(hat(sigma)[a]^(n == 22))
 )
 
-curve(
-  dnorm(
-    x, 
-    mean = 0, 
-    sd = sd(res)
-    ),
-  add = TRUE,
+abline(
+  h = sd(res),
+  col = "red"
 )
 ```
   

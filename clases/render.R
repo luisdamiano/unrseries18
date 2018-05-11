@@ -1,7 +1,7 @@
 library(rmarkdown)
 
 setwd(dirname(rstudioapi::getSourceEditorContext()$path))
-files <- 0:8
+files <- 0:10
 for (f in files) {
   rmdfile <- paste0(f, ".Rmd")
   pdffile <- paste0(f, ".pdf")

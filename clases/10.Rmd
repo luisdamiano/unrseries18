@@ -1,0 +1,192 @@
+---
+title: "Series de Tiempo 2018"
+subtitle: "Maestría en Estadística Aplicada, UNR \\newline Unidad 10"
+author: "Luis Damiano \\newline damiano.luis@gmail.com"
+date: "`r Sys.Date()`"
+output:
+  beamer_presentation:
+    keep_tex: false
+    latex_engine: pdflatex
+    theme: metropolis
+    toc: false
+    slide_level: 2
+    incremental: false
+    includes:
+      in_header: tex/header.tex
+header-includes:
+  - \widowpenalties 1 150
+fontsize: 11pt
+classoption: compress
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(quantmod)
+library(forecast)
+library(tsoutliers)
+library(xtable)
+source("R/plots.R")
+```
+
+## Contenido
+
+* Valores extremos
+
+# Valores extremos
+
+## Outlier aditivo
+
+\centering
+
+\tiny
+
+```{r, echo = TRUE, out.width = "0.8 \\textwidth"}
+# Crea objeto outlier en t = 10
+out <- outliers(type = "AO", ind  = 10)
+# Produce la matriz de diseño (dummy) para una serie de largo T = 100
+mat <- outliers.effects(out, 100)
+
+plot(mat, type = "s", main = "Outlier Aditivo", ylab = "Efecto", xlab = "Tiempo")
+```
+
+## Cambio de nivel
+
+\centering
+
+\tiny
+
+```{r, echo = TRUE, out.width = "0.8 \\textwidth"}
+# Crea objeto outlier en t = 10
+out <- outliers(type = "LS", ind  = 10)
+# Produce la matriz de diseño (dummy) para una serie de largo T = 100
+mat <- outliers.effects(out, 100)
+
+plot(mat, type = "s", main = "Cambio de Nivel", ylab = "Efecto", xlab = "Tiempo")
+```
+
+## Cambio transitorio
+
+\centering
+
+\tiny
+
+```{r, echo = TRUE, out.width = "0.8 \\textwidth"}
+# Crea objeto outlier en t = 10
+out <- outliers(type = "TC", ind  = 10)
+mat1 <- outliers.effects(out, 100, delta = 0.2)
+mat2 <- outliers.effects(out, 100, delta = 0.8)
+plot(mat1, type = "s", main = "Cambio Transitorio", ylab = "Efecto", xlab = "Tiempo")
+lines(mat2, col = "blue")
+```
+
+## Simulación de un outlier aditivo
+
+```{r}
+simAR1 <- function(phi1, sigma, Z0, T) {
+  TT <- 2 * T
+
+  # Ruido
+  at <- rnorm(TT, 0, sigma)
+  
+  # Observaciones
+  Zt <- vector("numeric", TT)
+  Zt[1] <- Z0
+  for (t in 2:TT) {
+    Zt[t] <- phi1 * Zt[t - 1] + at[t]
+  }
+  
+  # Descartamos la primera mitad para eliminar la influencia del valor inicial
+  tail(Zt, T)
+}
+```
+
+\centering
+
+\tiny
+
+```{r, echo = TRUE, out.width = "0.8 \\textwidth"}
+set.seed(9000)
+z  <- simAR1(phi1 = 0.5, sigma = 1, Z0 = 0, T = 100)
+z  <- ts(z, frequency = 12)
+z[50] <- z[50] + 7 # Agrega outlier aditivo en t = 50
+
+plot(z, type = "l", ylab = "Variable simulada", xlab = "Tiempo")
+```
+
+## Estimación sin considerar outlier (1)
+
+\centering
+
+\tiny
+
+```{r, echo = TRUE}
+fit1 <- Arima(
+  z, 
+  order = c(1, 0, 0), 
+  include.mean = FALSE
+)
+
+print(fit1)
+
+sd(residuals(fit1))
+```
+
+## Estimación sin considerar outlier (2)
+
+```{r, out.width = "1 \\textwidth"}
+plot(z, type = "l", ylab = "Residuos", xlab = "Tiempo")
+```
+
+## Estimación con momento conocido
+
+\centering
+
+\tiny
+
+```{r, echo = TRUE}
+out <- outliers(type = "AO", ind  = 50)
+mat <- outliers.effects(out, 100)
+
+fit2 <- Arima(
+  z, 
+  order = c(1, 0, 0), 
+  include.mean = FALSE,
+  xreg  = mat
+)
+
+print(fit2)
+
+sd(residuals(fit2))
+```
+
+## Estimación con momento no conocido (1) ^[@chen1993joint]
+
+\centering
+
+\tiny
+
+```{r, echo = TRUE}
+fit3 <- tso(
+  y = z, types = c("AO", "LS", "TC"), tsmethod = "arima",
+  args.tsmethod = list(order = c(1, 0, 0), include.mean = FALSE)
+)
+
+print(fit3)
+
+sd(residuals(fit3$fit))
+```
+
+## Estimación con momento no conocido (2)
+
+```{r, out.width = "1 \\textwidth"}
+plot(fit3)
+```
+
+## Estimación con momento no conocido (3)
+
+```{r, out.width = "1 \\textwidth"}
+plot(residuals(fit3$fit), type = "l", ylab = "Residuos", xlab = "Tiempo")
+```
+
+## Referencias

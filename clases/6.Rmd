@@ -728,7 +728,7 @@ tsdisplay(
   )
 ```
 
-## Primera diferencia principal y estacional de la serie transformada (ln)
+## Primera dif. principal y estacional de la serie transformada (ln)
 
 ```{r}
 tsdisplay(

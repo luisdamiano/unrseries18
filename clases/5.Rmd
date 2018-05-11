@@ -109,7 +109,7 @@ plot_seq(
 \tiny
 
 ```{r, results = "asis"}
-z_mat <- matrix(z, ncol = 12)
+z_mat <- matrix(z, ncol = 12, byrow = TRUE)
 z_ano <- tapply(z, format(index(z), "%Y"), mean)
 z_mes <- tapply(z, format(index(z), "%m"), mean)
 z_all <- mean(z)
@@ -202,7 +202,7 @@ Z_t = \mathcal{T} \times \mathcal{S} \times \mathcal{E}
 * $p \in \mathbb{N}$ períodos completos.
 
 \[
-\hat{\mathcal{T}}_t = \frac{1}{24}\left(Z_{t-6} + 2\sum_{i = -5}^{5}{Z_{t-i}} + Z_{t+6}\right) \qquad \hat{\mathcal{S}}_j = \frac{\frac{1}{p} \sum_{i = 1}^{p}{Z_{ij}}}{\frac{1}{T}\sum_{t = 1}^{T}{Z_t}}, j = 1, 2, \dots, 12 \qquad \hat{\mathcal{E}}_t = \frac{Z_t}{\hat{\mathcal{T}}_t + \hat{\mathcal{S}}_j}
+\hat{\mathcal{T}}_t = \frac{1}{24}\left(Z_{t-6} + 2\sum_{i = -5}^{5}{Z_{t-i}} + Z_{t+6}\right) \qquad \hat{\mathcal{S}}_j = \frac{\frac{1}{p} \sum_{i = 1}^{p}{Z_{ij}}}{\frac{1}{T}\sum_{t = 1}^{T}{Z_t}}, j = 1, 2, \dots, 12 \qquad \hat{\mathcal{E}}_t = \frac{Z_t}{\hat{\mathcal{T}}_t \times \hat{\mathcal{S}}_j}
 \]
 
 ## Descomposición con medias móviles (continuación)
@@ -370,18 +370,14 @@ legend(
 \centering
 
 \tiny
-<!--
-\[
-\ln(Z_t) = \dots
-\]
--->
+
 \raggedleft
 
 * Transformación logarítmica para estabilizar la varianza.
 * Autorregresivo regular de orden $p = 2$.
 * Diferenciación regular de orden $d = 1$.
-* Media móvil regular de orden $q = 2$.
-* Media móvil estacional de orden $Q = 2$.
+* Diferenciación estacional de orden $D = 1$.
+* Media móvil estacional de orden $Q = 1$.
 
 ## Serie transformada (ln)
 
